@@ -1,0 +1,5 @@
+<nav class="subnav">
+  <a href="{{ url_for('receitas.lista') }}" class="{{ 'ativo' if request.endpoint in ('receitas.lista', 'receitas.ver', 'receitas.editar') }}">Receitas</a>
+  <a href="{{ url_for('receitas.nova') }}" class="{{ 'ativo' if request.endpoint == 'receitas.nova' }}">Nova receita</a>
+  <a href="{{ url_for('receitas.ingredientes') }}" class="{{ 'ativo' if request.endpoint == 'receitas.ingredientes' }}">Ingredientes e preços</a>
+</nav>

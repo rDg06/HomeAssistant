@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<h1>Olá! 👋</h1>
+<p class="muted">Resumo da casa</p>
+<div class="grelha">
+  <a class="cartao modulo" href="{{ url_for('gastos.lista') }}">
+    <h2>💶 Gastos mensais</h2>
+    <div class="valor-grande">{{ gastos_mes|eur }}</div>
+    <p class="muted">gastos em {{ nome_mes(mes_gastos) }}{% if rendimentos_mes %} · saldo
+      <span class="{{ 'negativo' if rendimentos_mes < gastos_mes else 'positivo' }}">{{ (rendimentos_mes - gastos_mes)|eur }}</span>{% endif %}</p>
+  </a>
+  <a class="cartao modulo" href="{{ url_for('impressao.painel') }}">
+    <h2>🖨️ Impressão 3D</h2>
+    <div class="valor-grande">{{ vendas.lucro|eur }}</div>
+    <p class="muted">lucro em {{ nome_mes(mes) }} · {{ vendas.faturado|eur }} faturado</p>
+  </a>
+  <a class="cartao modulo" href="{{ url_for('receitas.lista') }}">
+    <h2>🎂 Receitas</h2>
+    <div class="valor-grande">{{ n_receitas }}</div>
+    <p class="muted">receitas guardadas · {{ n_ingredientes }} ingredientes</p>
+  </a>
+</div>
+{% endblock %}

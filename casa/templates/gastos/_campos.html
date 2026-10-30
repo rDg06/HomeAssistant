@@ -1,0 +1,23 @@
+<label>Data
+  <input type="date" name="data" value="{{ gasto.data if gasto else data_padrao }}" min="{{ primeiro_mes }}-01" required>
+</label>
+<label>Descrição
+  <input name="descricao" value="{{ gasto.descricao if gasto }}" placeholder="ex.: Continente" required>
+</label>
+<label>Categoria
+  <select name="categoria_id">
+    <option value="">— sem categoria —</option>
+    {% for c in categorias %}
+      <option value="{{ c.id }}" {{ 'selected' if gasto and gasto.categoria_id == c.id }}>{{ c.nome }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>Valor (€)
+  <input type="number" name="valor" step="0.01" min="0.01" inputmode="decimal" value="{{ gasto.valor if gasto }}" required>
+</label>
+<label class="check">
+  <input type="checkbox" name="fixo" value="1" {{ 'checked' if gasto and gasto.fixo }}> Gasto fixo mensal
+</label>
+<label class="largo">Notas
+  <input name="notas" value="{{ gasto.notas if gasto }}" placeholder="opcional">
+</label>

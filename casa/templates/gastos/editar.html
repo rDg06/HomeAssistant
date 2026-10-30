@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Editar gasto{% endblock %}
+{% block conteudo %}
+{% include "gastos/_subnav.html" %}
+<h1>Editar gasto</h1>
+<section class="cartao">
+  <form method="post" class="campos">
+    {% include "gastos/_campos.html" %}
+    <div class="acoes" style="justify-content: flex-start">
+      <button type="submit">Guardar</button>
+      <a class="botao secundario" href="{{ url_for('.lista', mes=gasto.data[:7]) }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

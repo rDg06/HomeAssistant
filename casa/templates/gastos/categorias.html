@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Categorias{% endblock %}
+{% block conteudo %}
+{% include "gastos/_subnav.html" %}
+<h1>Categorias de gastos</h1>
+
+<section class="cartao">
+  <form method="post" class="campos">
+    <label>Nova categoria<input name="nome" required placeholder="ex.: Animais"></label>
+    <button type="submit">Adicionar</button>
+  </form>
+</section>
+
+<section class="cartao">
+  <div class="tabela">
+    <table>
+      <thead><tr><th>Categoria</th><th class="num">Registos</th><th class="num">Total (sempre)</th><th></th></tr></thead>
+      <tbody>
+        {% for c in categorias %}
+          <tr>
+            <td>{{ c.nome }}</td>
+            <td class="num">{{ c.n }}</td>
+            <td class="num">{{ c.total|eur }}</td>
+            <td>
+              <div class="acoes">
+                <form method="post" action="{{ url_for('.apagar_categoria', id=c.id) }}"
+                      data-confirmar="Apagar a categoria? Os {{ c.n }} gasto(s) ficam sem categoria.">
+                  <button class="perigo pequeno">Apagar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="vazio">Ainda não há categorias.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

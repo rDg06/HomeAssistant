@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}Receitas{% endblock %}
+{% block conteudo %}
+{% include "receitas/_subnav.html" %}
+
+<div class="cabecalho">
+  <h1>Receitas</h1>
+  <a class="botao" href="{{ url_for('.nova') }}">+ Nova receita</a>
+</div>
+
+<form method="get" class="filtros">
+  <input type="search" name="q" value="{{ q }}" placeholder="Procurar receita…">
+  <select name="tipo" onchange="this.form.submit()">
+    <option value="">Todos os tipos</option>
+    {% for t in tipos %}<option {{ 'selected' if t == tipo }}>{{ t }}</option>{% endfor %}
+  </select>
+  <button class="secundario">Procurar</button>
+</form>
+
+{% if receitas %}
+  <div class="grelha">
+    {% for r in receitas %}
+      <a class="cartao receita-cartao" href="{{ url_for('.ver', id=r.id) }}">
+        <h2>{{ r.nome }}</h2>
+        <span class="etiqueta">{{ r.tipo }}</span>
+        {% if r.tamanho %}<span class="muted pequeno">· {{ r.tamanho }}</span>{% endif %}
+        <div class="custos">
+          <span><strong>{{ r.custo|eur }}</strong> <span class="muted pequeno">total</span></span>
+          <span>{{ (r.custo / r.porcoes)|eur }} <span class="muted pequeno">/ porção ({{ r.porcoes }})</span></span>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <section class="cartao">
+    <p class="vazio">
+      {% if q or tipo %}Nenhuma receita encontrada.{% else %}Ainda não tens receitas. <a href="{{ url_for('.nova') }}">Cria a primeira</a>.{% endif %}
+    </p>
+  </section>
+{% endif %}
+{% endblock %}

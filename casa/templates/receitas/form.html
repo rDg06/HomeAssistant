@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block titulo %}{{ receita.nome if receita else 'Nova receita' }}{% endblock %}
+
+{% macro linha(ingredientes, escolhido=none, quantidade='') %}
+  <tr>
+    <td>
+      <select name="ingrediente_id" aria-label="Ingrediente">
+        <option value="">— escolher —</option>
+        {% for i in ingredientes %}
+          <option value="{{ i.id }}" {{ 'selected' if i.id == escolhido }}>{{ i.nome }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td style="width: 7rem"><input type="number" name="quantidade" step="any" min="0" inputmode="decimal" value="{{ quantidade }}" aria-label="Quantidade"></td>
+    <td class="unidade muted" style="width: 2.5rem"></td>
+    <td class="num custo"></td>
+    <td style="width: 2.5rem"><button type="button" class="perigo pequeno remover" title="Remover">✕</button></td>
+  </tr>
+{% endmacro %}
+
+{% block conteudo %}
+{% include "receitas/_subnav.html" %}
+<h1>{{ 'Editar receita' if receita else 'Nova receita' }}</h1>
+
+<form method="post" id="receita">
+  <section class="cartao">
+    <div class="campos">
+      <label class="largo">Nome<input name="nome" value="{{ receita.nome if receita }}" required placeholder="ex.: Pão de ló de chocolate"></label>
+      <label>Tipo
+        <select name="tipo">
+          {% for t in tipos %}<option {{ 'selected' if receita and receita.tipo == t }}>{{ t }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Porções<input type="number" name="porcoes" min="1" step="1" value="{{ receita.porcoes if receita else 8 }}"></label>
+      <label>Tamanho / forma<input name="tamanho" value="{{ receita.tamanho if receita }}" placeholder="ex.: forma redonda 24 cm"></label>
+    </div>
+  </section>
+
+  <section class="cartao">
+    <h2>Ingredientes</h2>
+    {% if not ingredientes %}
+      <div class="aviso erro">Ainda não tens ingredientes. <a href="{{ url_for('.ingredientes') }}">Adiciona-os primeiro</a> com os preços.</div>
+    {% endif %}
+    <div class="tabela">
+      <table>
+        <tbody id="linhas">
+          {% for l in linhas %}{{ linha(ingredientes, l.ingrediente_id, l.quantidade) }}{% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="total"><td>Custo total</td><td></td><td></td><td class="num" id="total"></td><td></td></tr>
+          <tr><td class="muted">Por porção</td><td></td><td></td><td class="num muted" id="por-porcao"></td><td></td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <p style="margin-bottom: 0">
+      <button type="button" class="secundario pequeno" id="adicionar">+ Ingrediente</button>
+      <a class="pequeno" href="{{ url_for('.ingredientes') }}" style="margin-left: .5rem">Gerir ingredientes e preços</a>
+    </p>
+  </section>
+
+  <section class="cartao">
+    <div class="campos">
+      <label class="largo">Preparação<textarea name="preparo" rows="8" placeholder="1. Pré-aquecer o forno a 180 °C&#10;2. …">{{ receita.preparo if receita }}</textarea></label>
+      <label class="largo">Notas<textarea name="notas" rows="3" placeholder="tempo de forno, dicas, onde compraste…">{{ receita.notas if receita }}</textarea></label>
+    </div>
+  </section>
+
+  <div class="acoes" style="justify-content: flex-start">
+    <button type="submit">Guardar receita</button>
+    <a class="botao secundario" href="{{ url_for('.ver', id=receita.id) if receita else url_for('.lista') }}">Cancelar</a>
+  </div>
+</form>
+
+<template id="linha-modelo">{{ linha(ingredientes) }}</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const ING = {{ ing_js|tojson }};
+  const form = document.getElementById('receita');
+  const corpo = document.getElementById('linhas');
+  const modelo = document.getElementById('linha-modelo');
+
+  function atualizar() {
+    let total = 0;
+    for (const tr of corpo.querySelectorAll('tr')) {
+      const ing = ING[tr.querySelector('select').value];
+      const custo = ing ? lerNum(tr.querySelector('input').value) * ing.preco : 0;
+      tr.querySelector('.unidade').textContent = ing ? ing.unidade : '';
+      tr.querySelector('.custo').textContent = fmtEur(custo);
+      total += custo;
+    }
+    const porcoes = parseInt(form.elements.porcoes.value) || 1;
+    document.getElementById('total').textContent = fmtEur(total);
+    document.getElementById('por-porcao').textContent = fmtEur(total / porcoes);
+  }
+
+  function adicionarLinha() {
+    corpo.append(modelo.content.cloneNode(true));
+    atualizar();
+    return corpo.lastElementChild;
+  }
+
+  document.getElementById('adicionar').addEventListener('click', () => adicionarLinha().querySelector('select').focus());
+  corpo.addEventListener('click', e => {
+    if (e.target.closest('.remover')) {
+      e.target.closest('tr').remove();
+      atualizar();
+    }
+  });
+  form.addEventListener('input', atualizar);
+  form.addEventListener('change', atualizar);
+
+  if (!corpo.children.length) adicionarLinha();
+  atualizar();
+</script>
+{% endblock %}

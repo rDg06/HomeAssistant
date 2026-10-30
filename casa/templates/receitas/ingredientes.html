@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block titulo %}Ingredientes{% endblock %}
+{% block conteudo %}
+{% include "receitas/_subnav.html" %}
+<h1>Ingredientes e preços</h1>
+
+<section class="cartao">
+  <h2>Novo ingrediente</h2>
+  <form method="post" class="campos">
+    <label>Nome<input name="nome" required placeholder="ex.: Chocolate culinária"></label>
+    <label>Unidade
+      <select name="unidade">
+        <option value="g">gramas (g)</option>
+        <option value="ml">mililitros (ml)</option>
+        <option value="un">unidades (un)</option>
+      </select>
+    </label>
+    <label>Quantidade da embalagem<input type="number" name="qtd_embalagem" step="any" min="0.001" inputmode="decimal" required placeholder="ex.: 200"></label>
+    <label>Preço da embalagem (€)<input type="number" name="preco_embalagem" step="0.01" min="0" inputmode="decimal" required placeholder="ex.: 1.99"></label>
+    <button type="submit">Adicionar</button>
+  </form>
+  <p class="muted pequeno">Põe o preço da embalagem que costumas comprar. Ex.: farinha, 1000 g, 0,89 €. Quando o preço mudar,
+    atualiza-o aqui e todas as receitas que o usam ficam com o custo novo.</p>
+</section>
+
+<section class="cartao">
+  <div class="tabela">
+    <table>
+      <thead>
+        <tr><th>Ingrediente</th><th>Unid.</th><th class="num">Embalagem</th><th class="num">Preço</th>
+            <th class="num">Referência</th><th class="num">Atualizado</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for i in ingredientes %}
+          {% set f = 'ing-' ~ i.id %}
+          <tr>
+            <td><input name="nome" form="{{ f }}" value="{{ i.nome }}" required></td>
+            <td>
+              <select name="unidade" form="{{ f }}" style="width: 4.5rem">
+                {% for u in unidades %}<option {{ 'selected' if u == i.unidade }}>{{ u }}</option>{% endfor %}
+              </select>
+            </td>
+            <td><input type="number" name="qtd_embalagem" form="{{ f }}" value="{{ i.qtd_embalagem }}" step="any" min="0.001" style="width: 6rem; margin-left: auto; display: block"></td>
+            <td><input type="number" name="preco_embalagem" form="{{ f }}" value="{{ i.preco_embalagem }}" step="0.01" min="0" style="width: 6rem; margin-left: auto; display: block"></td>
+            <td class="num muted">
+              {{ (i.preco_unit * (1 if i.unidade == 'un' else 1000))|eur }}{{ unidades[i.unidade][1:] }}
+            </td>
+            <td class="num muted pequeno">{{ i.atualizado_em|data_curta }}</td>
+            <td>
+              <div class="acoes">
+                <form method="post" id="{{ f }}">
+                  <input type="hidden" name="id" value="{{ i.id }}">
+                  <button class="secundario pequeno">Guardar</button>
+                </form>
+                <form method="post" action="{{ url_for('.apagar_ingrediente', id=i.id) }}" data-confirmar="Apagar este ingrediente?">
+                  <button class="perigo pequeno" {{ 'disabled title="Usado em receitas"'|safe if i.n_receitas }}>Apagar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="vazio">Ainda não há ingredientes.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block titulo %}Vendas 3D{% endblock %}
+{% block conteudo %}
+{% include "impressao/_subnav.html" %}
+
+<div class="mes-nav">
+  <h1>Vendas · {{ nome_mes(mes) }}</h1>
+  <form method="get">
+    <input type="month" name="mes" value="{{ mes }}" onchange="this.form.submit()" aria-label="Escolher mês">
+  </form>
+</div>
+
+<div class="numeros">
+  <div class="numero"><div class="rotulo">Faturado</div><div class="valor">{{ resumo.faturado|eur }}</div></div>
+  <div class="numero"><div class="rotulo">Custos</div><div class="valor">{{ resumo.custos|eur }}</div></div>
+  <div class="numero">
+    <div class="rotulo">Lucro</div>
+    <div class="valor {{ 'negativo' if resumo.lucro < 0 else 'positivo' }}">{{ resumo.lucro|eur }}</div>
+  </div>
+  <div class="numero"><div class="rotulo">Peças vendidas</div><div class="valor">{{ resumo.unidades }}</div></div>
+</div>
+
+<section class="cartao">
+  <h2>Registar venda</h2>
+  <form method="post" action="{{ url_for('.nova_venda') }}" class="campos" id="venda">
+    <label>Data<input type="date" name="data" value="{{ data_padrao }}" required></label>
+    <label>Peça
+      <select name="peca_id">
+        <option value="">— outra coisa —</option>
+        {% for p in pecas %}
+          <option value="{{ p.id }}" data-nome="{{ p.nome }}" data-preco="{{ '%.2f'|format(p.preco) }}"
+                  data-custo="{{ '%.2f'|format(p.custo.total) }}" {{ 'selected' if p.id == peca_escolhida }}>{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Descrição<input name="descricao" placeholder="o que vendeste"></label>
+    <label>Quantidade<input type="number" name="quantidade" value="1" min="1" step="1"></label>
+    <label>Preço por unidade (€)<input type="number" name="preco_unit" step="0.01" min="0" inputmode="decimal" required></label>
+    <label>Custo por unidade (€)<input type="number" name="custo_unit" step="0.01" min="0" inputmode="decimal"></label>
+    <label>Portes / taxas (€)<input type="number" name="outros_custos" step="0.01" min="0" inputmode="decimal" placeholder="0"></label>
+    <label>Cliente<input name="cliente" placeholder="opcional"></label>
+    <label class="largo">Notas<input name="notas" placeholder="opcional"></label>
+    <button type="submit">Registar</button>
+  </form>
+</section>
+
+<section class="cartao">
+  <h2>Vendas de {{ nome_mes(mes) }}</h2>
+  {% if vendas %}
+    <div class="tabela">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Venda</th><th class="num">Qtd.</th><th class="num">Preço un.</th>
+              <th class="num">Total</th><th class="num">Lucro</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for v in vendas %}
+            <tr>
+              <td>{{ v.data|data_curta }}</td>
+              <td>
+                {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}
+                {% if v.notas %}<div class="muted pequeno">{{ v.notas }}</div>{% endif %}
+              </td>
+              <td class="num">{{ v.quantidade }}</td>
+              <td class="num">{{ v.preco_unit|eur }}</td>
+              <td class="num">{{ (v.quantidade * v.preco_unit)|eur }}</td>
+              <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}">{{ v.lucro|eur }}</td>
+              <td>
+                <div class="acoes">
+                  <form method="post" action="{{ url_for('.apagar_venda', id=v.id) }}" data-confirmar="Apagar esta venda?">
+                    <button class="perigo pequeno">Apagar</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Sem vendas neste mês.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const form = document.getElementById('venda');
+  let nomeAnterior = '';
+  function preencher() {
+    const opcao = form.elements.peca_id.selectedOptions[0];
+    if (!opcao || !opcao.value) return;
+    if (!form.elements.descricao.value || form.elements.descricao.value === nomeAnterior) {
+      form.elements.descricao.value = opcao.dataset.nome;
+    }
+    nomeAnterior = opcao.dataset.nome;
+    form.elements.preco_unit.value = opcao.dataset.preco;
+    form.elements.custo_unit.value = opcao.dataset.custo;
+  }
+  form.elements.peca_id.addEventListener('change', preencher);
+  preencher();
+</script>
+{% endblock %}

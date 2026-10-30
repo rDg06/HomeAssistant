@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Início{% endblock %} · Casa</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <a class="marca" href="{{ url_for('inicio') }}">🏠 Casa</a>
+    <nav>
+      <a href="{{ url_for('gastos.lista') }}" class="{{ 'ativo' if request.blueprint == 'gastos' }}">Gastos</a>
+      <a href="{{ url_for('impressao.painel') }}" class="{{ 'ativo' if request.blueprint == 'impressao' }}">Impressão 3D</a>
+      <a href="{{ url_for('receitas.lista') }}" class="{{ 'ativo' if request.blueprint == 'receitas' }}">Receitas</a>
+    </nav>
+  </header>
+  <main>
+    {% for categoria, mensagem in get_flashed_messages(with_categories=true) %}
+      <div class="aviso {{ categoria }}">{{ mensagem }}</div>
+    {% endfor %}
+    {% block conteudo %}{% endblock %}
+  </main>
+  <script>
+    const fmtEur = v => v.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+    const lerNum = t => parseFloat(String(t || '0').replace(',', '.')) || 0;
+
+    // Confirmação dentro da página (as janelas confirm() do browser podem estar bloqueadas).
+    // O 1.º clique pede confirmação no próprio botão; o 2.º, nos 4 segundos seguintes, confirma.
+    function pedirConfirmacao(botao, mensagem, acao) {
+      if (botao._repor) {
+        clearTimeout(botao._repor.timer);
+        botao._repor();
+        return acao();
+      }
+      const original = botao.innerHTML;
+      const repor = () => {
+        botao._repor = null;
+        botao.innerHTML = original;
+        botao.classList.remove('armado');
+      };
+      botao.textContent = 'Confirmar?';
+      botao.classList.add('armado');
+      if (mensagem) botao.title = mensagem;
+      botao._repor = repor;
+      repor.timer = setTimeout(repor, 4000);
+    }
+
+    document.addEventListener('submit', e => {
+      const form = e.target;
+      if (!form.dataset.confirmar) return;
+      e.preventDefault();
+      const botao = e.submitter || form.querySelector('button');
+      pedirConfirmacao(botao, form.dataset.confirmar, () => form.submit());
+    });
+
+    // Um duplo clique em "Adicionar"/"Guardar" não deve gravar o mesmo registo duas vezes.
+    document.addEventListener('submit', e => {
+      const botao = e.submitter;
+      if (e.defaultPrevented || !botao) return;
+      setTimeout(() => { botao.disabled = true; botao.dataset.enviado = '1'; });
+    });
+    // Ao voltar atrás no browser a página pode vir da cache com o botão ainda desativado.
+    window.addEventListener('pageshow', () => {
+      for (const b of document.querySelectorAll('[data-enviado]')) { b.disabled = false; delete b.dataset.enviado; }
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

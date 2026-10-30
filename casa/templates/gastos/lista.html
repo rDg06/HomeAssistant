@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block titulo %}Gastos{% endblock %}
+{% block conteudo %}
+{% include "gastos/_subnav.html" %}
+
+<div class="mes-nav">
+  {% if anterior %}
+    <a class="botao secundario pequeno" href="{{ url_for('.lista', mes=anterior) }}" title="Mês anterior">←</a>
+  {% else %}
+    <span class="botao secundario pequeno desativado" title="Os registos começam em {{ nome_mes(primeiro_mes) }}">←</span>
+  {% endif %}
+  <h1>{{ nome_mes(mes) }}</h1>
+  <a class="botao secundario pequeno" href="{{ url_for('.lista', mes=seguinte) }}" title="Mês seguinte">→</a>
+  <form method="get">
+    <input type="month" name="mes" value="{{ mes }}" min="{{ primeiro_mes }}" onchange="this.form.submit()" aria-label="Escolher mês">
+  </form>
+</div>
+
+<div class="numeros">
+  <div class="numero">
+    <div class="rotulo cabecalho" style="margin: 0">
+      <span>Rendimentos</span>
+      <button type="button" class="link pequeno" data-abrir="janela-rendimentos">{{ 'Editar' if total_rendimentos else 'Adicionar' }}</button>
+    </div>
+    <div class="valor">{{ total_rendimentos|eur }}</div>
+    <div class="extra muted">
+      {% for tipo, valor in por_tipo %}{{ tipo }} {{ valor|eur }}{{ ' · ' if not loop.last }}{% else %}
+        Ainda sem rendimentos neste mês{% endfor %}
+    </div>
+  </div>
+  <div class="numero">
+    <div class="rotulo">Gastos</div>
+    <div class="valor">{{ total|eur }}</div>
+    <div class="extra muted">
+      {% if total_anterior %}
+        {% set dif = (total - total_anterior) / total_anterior * 100 %}
+        <span class="{{ 'negativo' if dif > 0 else 'positivo' }}">{{ '%+.0f'|format(dif) }}%</span> vs {{ nome_mes(anterior) }}
+      {% else %}{{ gastos|length }} registo(s){% endif %}
+    </div>
+  </div>
+  <div class="numero">
+    {% set saldo = total_rendimentos - total %}
+    <div class="rotulo">Saldo</div>
+    <div class="valor {{ 'negativo' if saldo < 0 else 'positivo' }}">{{ saldo|eur }}</div>
+    <div class="extra muted">
+      {% if not total_rendimentos %}rendimentos − gastos
+      {% elif saldo >= 0 %}pouparam {{ (saldo / total_rendimentos * 100)|round|int }}% do que entrou
+      {% else %}gastaram mais {{ (-saldo)|eur }} do que entrou{% endif %}
+    </div>
+  </div>
+</div>
+
+<section class="cartao">
+  <h2>Novo gasto</h2>
+  <form method="post" action="{{ url_for('.novo') }}" class="campos">
+    <input type="hidden" name="mes" value="{{ mes }}">
+    {% set gasto = none %}
+    {% include "gastos/_campos.html" %}
+    <button type="submit">Adicionar</button>
+  </form>
+  {% if fixos_anterior %}
+    <form method="post" action="{{ url_for('.copiar_fixos') }}" style="margin-top: .75rem">
+      <input type="hidden" name="mes" value="{{ mes }}">
+      <button class="secundario pequeno" title="Gastos fixos e rendimentos de todos os meses">↻ Copiar {{ fixos_anterior }} registo(s) fixo(s) de {{ nome_mes(anterior) }}</button>
+    </form>
+  {% endif %}
+</section>
+
+<div class="grelha">
+  <section class="cartao">
+    <h2>Por categoria</h2>
+    {% if fatias %}
+      <div class="pizza" id="pizza">
+        <div class="pizza-grafico">
+          <svg viewBox="0 0 180 180" role="img" aria-label="Gastos de {{ nome_mes(mes) }} por categoria">
+            <g transform="rotate(-90 90 90)">
+              {% for f in fatias %}
+                <circle class="fatia serie-{{ f.serie }}" data-i="{{ loop.index0 }}" cx="90" cy="90" r="70"
+                        stroke-dasharray="{{ f.traco }}" stroke-dashoffset="{{ f.desvio }}">
+                  <title>{{ f.nome }}: {{ f.total|eur }} ({{ f.pct|round|int }}%)</title>
+                </circle>
+              {% endfor %}
+            </g>
+          </svg>
+          <div class="pizza-centro" aria-hidden="true">
+            <span class="pizza-rotulo" data-padrao="Total">Total</span>
+            <strong class="pizza-valor" data-padrao="{{ total|eur }}">{{ total|eur }}</strong>
+          </div>
+        </div>
+        <table class="pizza-legenda">
+          {% for f in fatias %}
+            <tr data-i="{{ loop.index0 }}" data-nome="{{ f.nome }}" data-valor="{{ f.total|eur }} · {{ f.pct|round|int }}%">
+              <td><span class="amostra serie-{{ f.serie }}"></span>{{ f.nome }}</td>
+              <td class="num">{{ f.total|eur }}</td>
+              <td class="num muted">{{ f.pct|round|int }}%</td>
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% else %}
+      <p class="vazio">Sem gastos neste mês.</p>
+    {% endif %}
+  </section>
+  <section class="cartao">
+    <h2>Últimos meses</h2>
+    {% for m, t in historico %}
+      <div class="barra">
+        <a href="{{ url_for('.lista', mes=m) }}">{{ nome_mes(m, curto=True) }}</a>
+        <div class="trilho"><div class="enchimento" style="width: {{ (t / max_hist * 100)|round(1) if max_hist else 0 }}%"></div></div>
+        <span class="num">{{ t|eur }}</span>
+      </div>
+    {% endfor %}
+  </section>
+</div>
+
+<dialog id="janela-rendimentos" class="janela" aria-labelledby="janela-rendimentos-titulo">
+  <form method="post" action="{{ url_for('.rendimentos_mes') }}">
+    <input type="hidden" name="mes" value="{{ mes }}">
+    <div class="janela-cabecalho">
+      <h2 id="janela-rendimentos-titulo">Rendimentos de {{ nome_mes(mes) }}</h2>
+      <button type="button" class="secundario pequeno" data-fechar aria-label="Fechar">✕</button>
+    </div>
+    {% if janela.do_mes_anterior %}
+      <p class="muted pequeno" style="margin-top: 0">Preenchido com os valores mais recentes. Confirma ou corrige.</p>
+    {% endif %}
+    <div class="janela-blocos">
+      {% for b in janela.blocos %}
+        {% set i = loop.index %}
+        <fieldset>
+          <legend>{{ b.pessoa }}</legend>
+          <label>Salário líquido (€)
+            <input type="number" name="salario_{{ i }}" step="0.01" min="0" inputmode="decimal"
+                   value="{{ '%.2f'|format(b.salario) if b.salario }}" {{ 'autofocus' if i == 1 }}>
+          </label>
+          <label>Cartão refeição (€)
+            <input type="number" name="cartao_{{ i }}" step="0.01" min="0" inputmode="decimal"
+                   value="{{ '%.2f'|format(b.cartao) if b.cartao }}">
+          </label>
+          <label>Extra (€)
+            <input type="number" name="extra_{{ i }}" step="0.01" min="0" inputmode="decimal"
+                   value="{{ '%.2f'|format(b.extra) if b.extra }}" placeholder="horas extra, prémio…">
+          </label>
+        </fieldset>
+      {% endfor %}
+    </div>
+    <p class="muted pequeno">Deixar um valor vazio apaga-o deste mês. Salário e cartão repetem-se todos os meses; o extra é só deste mês.</p>
+    <div class="acoes" style="justify-content: flex-end">
+      <button type="button" class="secundario" data-fechar>Cancelar</button>
+      <button type="submit">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<section class="cartao">
+  <h2>Gastos de {{ nome_mes(mes) }}</h2>
+  {% if gastos %}
+    <div class="tabela">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th class="num">Valor</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for gasto in gastos %}
+            <tr>
+              <td>{{ gasto.data|data_curta }}</td>
+              <td>
+                {{ gasto.descricao }}
+                {% if gasto.fixo %}<span class="etiqueta">fixo</span>{% endif %}
+                {% if gasto.notas %}<div class="muted pequeno">{{ gasto.notas }}</div>{% endif %}
+              </td>
+              <td>{{ gasto.categoria or '—' }}</td>
+              <td class="num">{{ gasto.valor|eur }}</td>
+              <td>
+                <div class="acoes">
+                  <a class="botao secundario pequeno" href="{{ url_for('.editar', id=gasto.id) }}">Editar</a>
+                  <form method="post" action="{{ url_for('.apagar', id=gasto.id) }}" data-confirmar="Apagar este gasto?">
+                    <button class="perigo pequeno">Apagar</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Ainda não há gastos neste mês.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Janela "Rendimentos do mês"
+  const janela = document.getElementById('janela-rendimentos');
+  for (const botao of document.querySelectorAll('[data-abrir="janela-rendimentos"]')) {
+    botao.addEventListener('click', () => janela.showModal());
+  }
+  for (const botao of janela.querySelectorAll('[data-fechar]')) {
+    botao.addEventListener('click', () => janela.close());
+  }
+  // Clicar fora da janela também fecha.
+  janela.addEventListener('click', e => { if (e.target === janela) janela.close(); });
+</script>
+<script>
+  // Passar o rato (ou tocar) numa fatia ou linha da legenda destaca-a e mostra o valor no centro.
+  const pizza = document.getElementById('pizza');
+  if (pizza) {
+    const rotulo = pizza.querySelector('.pizza-rotulo');
+    const valor = pizza.querySelector('.pizza-valor');
+    const linhas = pizza.querySelectorAll('.pizza-legenda tr');
+
+    function destacar(i) {
+      pizza.classList.toggle('foco', i !== null);
+      for (const el of pizza.querySelectorAll('[data-i]')) el.classList.toggle('ativa', el.dataset.i === i);
+      const linha = i === null ? null : linhas[Number(i)];
+      rotulo.textContent = linha ? linha.dataset.nome : rotulo.dataset.padrao;
+      valor.textContent = linha ? linha.dataset.valor : valor.dataset.padrao;
+    }
+
+    pizza.addEventListener('pointerover', e => {
+      const alvo = e.target.closest('[data-i]');
+      if (alvo) destacar(alvo.dataset.i);
+    });
+    pizza.addEventListener('pointerleave', () => destacar(null));
+  }
+</script>
+{% endblock %}

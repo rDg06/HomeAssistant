@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ajuda %}
+{% block titulo %}Calculadora 3D{% endblock %}
+{% block conteudo %}
+{% include "impressao/_subnav.html" %}
+<h1>{{ 'Editar peça' if peca else 'Calculadora de impressão 3D' }}</h1>
+<p class="muted" style="margin-top: -.5rem">
+  Os valores fixos (eletricidade, impressora, mão de obra, margem) estão na <a href="{{ url_for('.configuracao') }}">configuração</a>.
+</p>
+
+{% if not filamentos %}
+  <div class="aviso erro">Ainda não tens filamentos. <a href="{{ url_for('.configuracao', _anchor='filamentos') }}">Adiciona um na configuração</a>.</div>
+{% endif %}
+
+<form method="post" id="calc">
+  <input type="hidden" name="id" value="{{ peca.id if peca }}">
+  <div class="grelha">
+    <section class="cartao">
+      <h2>Esta impressão</h2>
+      <div class="campos">
+        <label class="largo">Nome da peça
+          <input name="nome" value="{{ peca.nome if peca }}" placeholder="ex.: suporte de telemóvel">
+        </label>
+        <label class="largo"><span>Filamento {{ ajuda('O preço por kg de cada filamento define-se na Configuração.') }}</span>
+          <select name="filamento_id">
+            {% for f in filamentos %}
+              <option value="{{ f.id }}" data-preco="{{ f.preco_kg }}" {{ 'selected' if peca and peca.filamento_id == f.id }}>
+                {{ f.nome }} ({{ f.material }}) · {{ f.preco_kg|eur }}/kg
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+        <label><span>Peso (g) {{ ajuda('Peso em gramas, incluindo suportes, purga e torre de limpeza. Vê no Bambu Studio (soma de todas as cores).') }}</span>
+          <input type="number" name="gramas" step="any" min="0" inputmode="decimal" value="{{ peca.gramas if peca }}">
+        </label>
+        <label><span>Quantidade {{ ajuda('Número de peças iguais. O total é o preço por unidade vezes este valor.') }}</span>
+          <input type="number" name="qtd" step="1" min="1" value="1">
+        </label>
+        <label><span>Tempo de impressão (h) {{ ajuda('Horas estimadas pelo Bambu Studio antes de enviares para a A1.') }}</span>
+          <input type="number" name="horas_h" step="1" min="0" value="{{ peca.horas|int if peca }}">
+        </label>
+        <label><span>Tempo de impressão (min) {{ ajuda('Minutos a somar às horas (ex.: 5 h e 30 min).') }}</span>
+          <input type="number" name="horas_m" step="1" min="0" max="59" value="{{ ((peca.horas - peca.horas|int) * 60)|round|int if peca }}">
+        </label>
+        <label><span>Pós-processamento (min) {{ ajuda('Tempo extra desta peça: remover suportes, lixar, pintar ou montar.') }}</span>
+          <input type="number" name="trabalho_min" step="any" min="0" value="{{ (peca.horas_trabalho * 60)|round|int if peca }}">
+        </label>
+        <label><span>Extras: envio, embalagem (€) {{ ajuda('Custos fora da impressão, como caixa e portes. Não entram na margem.') }}</span>
+          <input type="number" name="custos_extra" step="any" min="0" inputmode="decimal" value="{{ peca.custos_extra if peca }}">
+        </label>
+        <label><span>Preço por unidade (€) {{ ajuda('Opcional. Deixa vazio para usar o preço calculado, ou escreve um valor arredondado.') }}</span>
+          <input type="number" name="preco_venda" step="0.01" min="0" inputmode="decimal"
+                 value="{{ peca.preco_venda if peca and peca.preco_venda is not none }}">
+        </label>
+        <label class="largo">Notas
+          <textarea name="notas" rows="2">{{ peca.notas if peca }}</textarea>
+        </label>
+      </div>
+    </section>
+
+    <div class="coluna">
+      <div class="destaque" aria-live="polite">
+        <div class="muted-claro">Preço final</div>
+        <div class="enorme" data-r="final">0,00 €</div>
+        <div class="linha-destaque">
+          <span>Por unidade: <b data-r="unit"></b></span>
+          <span>Lucro: <b data-r="lucro_total"></b></span>
+        </div>
+        <div class="acoes" style="justify-content: flex-start; margin-top: .9rem">
+          <button type="button" class="claro" id="adicionar">Adicionar ao orçamento</button>
+          <button type="submit" class="claro-sec">{{ 'Guardar alterações' if peca else 'Guardar peça' }}</button>
+        </div>
+      </div>
+
+      <section class="cartao">
+        <h2>Detalhe do cálculo (por unidade)</h2>
+        <table class="detalhe">
+          <tbody>
+            <tr><td>Material <span class="muted" data-t="gramas"></span></td><td class="num" data-r="material"></td></tr>
+            <tr><td>Eletricidade <span class="muted" data-t="horas"></span></td><td class="num" data-r="energia"></td></tr>
+            <tr><td>Desgaste e manutenção</td><td class="num" data-r="desgaste"></td></tr>
+            <tr><td>Mão de obra <span class="muted" data-t="minutos"></span></td><td class="num" data-r="mao_obra"></td></tr>
+            <tr><td>Falhas e desperdício ({{ cfg.taxa_falha_pct|num }}%)</td><td class="num" data-r="falhas"></td></tr>
+            <tr class="forte"><td>Custo de produção</td><td class="num" data-r="producao"></td></tr>
+            <tr><td>Margem ({{ cfg.margem_pct|num }}%)</td><td class="num" data-r="margem"></td></tr>
+            <tr><td>Extras</td><td class="num" data-r="extra"></td></tr>
+            <tr class="forte"><td>Preço calculado</td><td class="num" data-r="preco_sugerido"></td></tr>
+          </tbody>
+        </table>
+        <div class="acoes" style="justify-content: flex-start; margin-top: .75rem">
+          <button type="button" class="secundario pequeno" id="copiar">Copiar resumo</button>
+        </div>
+      </section>
+
+      <section class="cartao">
+        <h2>Orçamento</h2>
+        <div id="orcamento"></div>
+        <label style="margin-top: .75rem">Cliente (opcional, para registar como vendas)
+          <input id="cliente" placeholder="ex.: Ana Silva" autocomplete="off">
+        </label>
+        <div class="acoes" style="justify-content: flex-start; margin-top: .75rem; flex-wrap: wrap">
+          <button type="button" class="secundario pequeno" id="copiar-lista">Copiar lista</button>
+          <button type="button" class="secundario pequeno" id="registar">Registar como vendas</button>
+          <button type="button" class="perigo pequeno" id="esvaziar">Esvaziar</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const CFG = {{ cfg|tojson }};
+  const URL_ORCAMENTO = {{ url_for('.registar_orcamento')|tojson }};
+  const CHAVE = 'casa-orcamento-3d';
+  const form = document.getElementById('calc');
+  const v = nome => Math.max(0, lerNum(form.elements[nome].value));
+  let atual = null;
+
+  function calcular() {
+    const opcao = form.elements.filamento_id && form.elements.filamento_id.selectedOptions[0];
+    const precoKg = opcao ? parseFloat(opcao.dataset.preco) : 0;
+    const horas = v('horas_h') + v('horas_m') / 60;
+    const qtd = Math.max(1, Math.round(v('qtd')) || 1);
+
+    // Mesma fórmula que calcular() em impressao.py.
+    const r = {};
+    r.material = v('gramas') / 1000 * precoKg;
+    r.energia = CFG.potencia_w / 1000 * horas * CFG.preco_kwh;
+    r.desgaste = (CFG.custo_impressora / Math.max(1, CFG.vida_util_horas) + CFG.manutencao_hora) * horas;
+    r.mao_obra = (CFG.prep_min + v('trabalho_min')) / 60 * CFG.valor_hora_trabalho;
+    const base = r.material + r.energia + r.desgaste + r.mao_obra;
+    r.falhas = base * CFG.taxa_falha_pct / 100;
+    r.producao = base + r.falhas;
+    r.margem = r.producao * CFG.margem_pct / 100;
+    r.extra = v('custos_extra');
+    r.preco_sugerido = r.producao + r.margem + r.extra;
+    r.unit = form.elements.preco_venda.value ? v('preco_venda') : r.preco_sugerido;
+    r.final = r.unit * qtd;
+    r.lucro_total = (r.unit - r.producao - r.extra) * qtd;
+
+    for (const el of document.querySelectorAll('[data-r]')) el.textContent = fmtEur(r[el.dataset.r]);
+    document.querySelector('[data-t=gramas]').textContent = `(${v('gramas').toLocaleString('pt-PT')} g)`;
+    document.querySelector('[data-t=horas]').textContent = `(${horas.toLocaleString('pt-PT', { maximumFractionDigits: 2 })} h)`;
+    document.querySelector('[data-t=minutos]').textContent = `(${(CFG.prep_min + v('trabalho_min')).toLocaleString('pt-PT')} min)`;
+    form.elements.preco_venda.placeholder = r.preco_sugerido.toFixed(2);
+
+    atual = {
+      nome: form.elements.nome.value.trim() || 'Impressão 3D',
+      qtd,
+      preco_unit: Math.round(r.unit * 100) / 100,
+      custo_unit: Math.round((r.producao + r.extra) * 100) / 100,
+      total: r.final,
+      lucro: r.lucro_total,
+    };
+  }
+
+  // Copiar para a área de transferência (também funciona quando a app é aberta pelo IP no telemóvel).
+  async function copiar(texto, botao) {
+    const original = botao.textContent;
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = texto;
+      document.body.append(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    botao.textContent = 'Copiado';
+    setTimeout(() => (botao.textContent = original), 1500);
+  }
+
+  const linhaTexto = i => `${i.nome}${i.qtd > 1 ? ` (${i.qtd} un.)` : ''}: ${fmtEur(i.total)}`;
+
+  // Orçamento (fica guardado neste navegador até registares ou esvaziares).
+  let orcamento = [];
+  try { orcamento = JSON.parse(localStorage.getItem(CHAVE) || '[]'); } catch { orcamento = []; }
+  if (!Array.isArray(orcamento)) orcamento = [];
+
+  function guardarOrcamento() {
+    try { localStorage.setItem(CHAVE, JSON.stringify(orcamento)); } catch {}
+  }
+
+  function mostrarOrcamento() {
+    const caixa = document.getElementById('orcamento');
+    caixa.replaceChildren();
+    if (!orcamento.length) {
+      caixa.innerHTML = '<p class="muted pequeno" style="margin: 0">Ainda não há pedidos. Calcula uma peça e carrega em "Adicionar ao orçamento".</p>';
+    } else {
+      const tabela = document.createElement('table');
+      orcamento.forEach((item, i) => {
+        const tr = tabela.insertRow();
+        const nome = tr.insertCell();
+        nome.textContent = item.nome;
+        if (item.qtd > 1) nome.insertAdjacentHTML('beforeend', ` <span class="muted pequeno">(${item.qtd} un.)</span>`);
+        const lucro = tr.insertCell();
+        lucro.className = 'num muted pequeno';
+        lucro.textContent = 'lucro ' + fmtEur(item.lucro);
+        const total = tr.insertCell();
+        total.className = 'num';
+        total.textContent = fmtEur(item.total);
+        const rem = tr.insertCell();
+        rem.style.width = '2.5rem';
+        rem.innerHTML = `<button type="button" class="perigo pequeno" data-i="${i}" title="Remover">✕</button>`;
+      });
+      const soma = k => orcamento.reduce((a, item) => a + item[k], 0);
+      const tr = tabela.insertRow();
+      tr.className = 'total';
+      tr.insertCell().textContent = 'Total';
+      Object.assign(tr.insertCell(), { className: 'num muted pequeno', textContent: 'lucro ' + fmtEur(soma('lucro')) });
+      Object.assign(tr.insertCell(), { className: 'num', textContent: fmtEur(soma('total')) });
+      tr.insertCell();
+      caixa.append(tabela);
+    }
+    for (const id of ['copiar-lista', 'registar', 'esvaziar']) document.getElementById(id).disabled = !orcamento.length;
+  }
+
+  document.getElementById('adicionar').addEventListener('click', e => {
+    const botao = e.currentTarget;
+    if (v('gramas') <= 0 && v('horas_h') + v('horas_m') <= 0) {
+      botao.textContent = 'Preenche o peso ou o tempo';
+      setTimeout(() => (botao.textContent = 'Adicionar ao orçamento'), 1800);
+      return;
+    }
+    orcamento.push(atual);
+    guardarOrcamento();
+    mostrarOrcamento();
+    botao.textContent = 'Adicionado';
+    setTimeout(() => (botao.textContent = 'Adicionar ao orçamento'), 1200);
+  });
+
+  document.getElementById('orcamento').addEventListener('click', e => {
+    const botao = e.target.closest('[data-i]');
+    if (!botao) return;
+    orcamento.splice(Number(botao.dataset.i), 1);
+    guardarOrcamento();
+    mostrarOrcamento();
+  });
+
+  document.getElementById('esvaziar').addEventListener('click', e => {
+    pedirConfirmacao(e.currentTarget, 'Esvaziar o orçamento?', () => {
+      orcamento = [];
+      guardarOrcamento();
+      mostrarOrcamento();
+    });
+  });
+
+  document.getElementById('copiar').addEventListener('click', e => copiar(linhaTexto(atual), e.currentTarget));
+  document.getElementById('copiar-lista').addEventListener('click', e => {
+    const total = orcamento.reduce((a, item) => a + item.total, 0);
+    copiar(orcamento.map(linhaTexto).join('\n') + `\nTotal: ${fmtEur(total)}`, e.currentTarget);
+  });
+
+  document.getElementById('registar').addEventListener('click', e => {
+    const botao = e.currentTarget;
+    pedirConfirmacao(botao, 'Registar o orçamento como vendas de hoje?', async () => {
+      const cliente = document.getElementById('cliente').value.trim();
+      const resp = await fetch(URL_ORCAMENTO, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orcamento.map(item => ({ ...item, cliente }))),
+      });
+      if (!resp.ok) {
+        botao.textContent = 'Erro ao registar';
+        setTimeout(() => (botao.textContent = 'Registar como vendas'), 2000);
+        return;
+      }
+      orcamento = [];
+      guardarOrcamento();
+      location.href = (await resp.json()).url;
+    });
+  });
+
+  // Enter num campo não deve gravar a peça sem querer (só o botão "Guardar peça").
+  form.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault();
+  });
+  form.addEventListener('input', calcular);
+  calcular();
+  mostrarOrcamento();
+</script>
+{% endblock %}

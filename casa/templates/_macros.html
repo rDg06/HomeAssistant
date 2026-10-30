@@ -1,0 +1,5 @@
+{# Ícone "?" com uma explicação que aparece ao passar o rato ou ao tocar. #}
+{% macro ajuda(texto) -%}
+  <span class="ajuda" tabindex="0" role="button" aria-label="Ajuda: {{ texto }}" data-ajuda="{{ texto }}"
+        onclick="event.preventDefault()">?</span>
+{%- endmacro %}

@@ -1,0 +1,7 @@
+<nav class="subnav">
+  {% for endpoint, nome in [('impressao.painel', 'Painel'), ('impressao.calculadora', 'Calculadora'),
+                            ('impressao.vendas', 'Vendas'),
+                            ('impressao.configuracao', 'Configuração')] %}
+    <a href="{{ url_for(endpoint) }}" class="{{ 'ativo' if request.endpoint == endpoint }}">{{ nome }}</a>
+  {% endfor %}
+</nav>

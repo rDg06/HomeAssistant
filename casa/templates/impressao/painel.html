@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block titulo %}Impressão 3D{% endblock %}
+{% block conteudo %}
+{% include "impressao/_subnav.html" %}
+
+<div class="cabecalho">
+  <h1>Impressão 3D</h1>
+  <a class="botao" href="{{ url_for('.calculadora') }}">+ Calcular nova peça</a>
+</div>
+
+<div class="numeros">
+  <div class="numero">
+    <div class="rotulo">Faturado em {{ nome_mes(mes) }}</div>
+    <div class="valor">{{ resumo_mes.faturado|eur }}</div>
+    <div class="extra muted">{{ resumo_mes.unidades }} peça(s) vendida(s)</div>
+  </div>
+  <div class="numero">
+    <div class="rotulo">Lucro em {{ nome_mes(mes) }}</div>
+    <div class="valor {{ 'negativo' if resumo_mes.lucro < 0 else 'positivo' }}">{{ resumo_mes.lucro|eur }}</div>
+  </div>
+  <div class="numero">
+    <div class="rotulo">Lucro em {{ mes[:4] }}</div>
+    <div class="valor {{ 'negativo' if resumo_ano.lucro < 0 else 'positivo' }}">{{ resumo_ano.lucro|eur }}</div>
+    <div class="extra muted">{{ resumo_ano.faturado|eur }} faturado</div>
+  </div>
+</div>
+
+<section class="cartao">
+  <h2>Peças guardadas</h2>
+  {% if pecas %}
+    <div class="tabela">
+      <table>
+        <thead>
+          <tr>
+            <th>Peça</th><th>Filamento</th><th class="num">Peso</th><th class="num">Tempo</th>
+            <th class="num">Custo</th><th class="num">Preço</th><th class="num">Lucro</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pecas %}
+            <tr>
+              <td>{{ p.nome }}{% if p.notas %}<div class="muted pequeno">{{ p.notas }}</div>{% endif %}</td>
+              <td>{{ p.filamento or '—' }}</td>
+              <td class="num">{{ p.gramas|num(1) }} g</td>
+              <td class="num">{{ p.horas|duracao }}</td>
+              <td class="num">{{ p.custo.total|eur }}</td>
+              <td class="num">{{ p.preco|eur }}{% if p.preco_venda is none %}<div class="muted pequeno">sugerido</div>{% endif %}</td>
+              <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}">{{ p.lucro|eur }}</td>
+              <td>
+                <div class="acoes">
+                  <a class="botao pequeno" href="{{ url_for('.vendas', peca=p.id) }}">Vender</a>
+                  <a class="botao secundario pequeno" href="{{ url_for('.calculadora', id=p.id) }}">Editar</a>
+                  <form method="post" action="{{ url_for('.apagar_peca', id=p.id) }}" data-confirmar="Apagar esta peça?">
+                    <button class="perigo pequeno">Apagar</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Ainda não guardaste nenhuma peça. Usa a <a href="{{ url_for('.calculadora') }}">calculadora</a>.</p>
+  {% endif %}
+</section>
+
+<section class="cartao">
+  <div class="cabecalho" style="margin-bottom: .5rem">
+    <h2 style="margin: 0">Últimas vendas</h2>
+    <a href="{{ url_for('.vendas') }}">Ver todas →</a>
+  </div>
+  {% if ultimas %}
+    <div class="tabela">
+      <table>
+        <tbody>
+          {% for v in ultimas %}
+            <tr>
+              <td>{{ v.data|data_curta }}</td>
+              <td>{{ v.quantidade }}× {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}</td>
+              <td class="num">{{ (v.quantidade * v.preco_unit)|eur }}</td>
+              <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}">{{ v.lucro|eur }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Sem vendas registadas.</p>
+  {% endif %}
+</section>
+{% endblock %}

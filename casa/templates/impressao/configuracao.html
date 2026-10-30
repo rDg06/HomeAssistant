@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ajuda %}
+{% block titulo %}Configuração 3D{% endblock %}
+{% block conteudo %}
+{% include "impressao/_subnav.html" %}
+<h1>Configuração</h1>
+
+<section class="cartao">
+  <h2>Valores fixos</h2>
+  <form method="post" class="campos" style="grid-template-columns: repeat(auto-fill, minmax(230px, 1fr))">
+    {% for chave, rotulo, unidade, texto in campos %}
+      <label><span>{{ rotulo }} ({{ unidade }}) {{ ajuda(texto) }}</span>
+        <input type="number" name="{{ chave }}" value="{{ '%g'|format(cfg[chave]) }}" step="any"
+               min="{{ 1 if chave == 'vida_util_horas' else 0 }}" inputmode="decimal" required>
+      </label>
+    {% endfor %}
+    <div class="largo"><button type="submit">Guardar</button></div>
+  </form>
+</section>
+
+<section class="cartao" id="filamentos">
+  <h2>Filamentos</h2>
+  <form method="post" action="{{ url_for('.filamentos') }}" class="campos">
+    <label>Nome<input name="nome" required placeholder="ex.: eSun PLA+ Preto"></label>
+    <label>Material<input name="material" list="materiais" value="PLA"></label>
+    <label><span>Preço por kg (€) {{ ajuda('Se a bobine não tiver 1 kg, divide o preço pelo peso. Ex.: 750 g a 18 € → 24 €/kg.') }}</span>
+      <input type="number" name="preco_kg" step="any" min="0" inputmode="decimal" required>
+    </label>
+    <button type="submit">Adicionar filamento</button>
+  </form>
+
+  <datalist id="materiais">
+    {% for m in ['PLA', 'PLA+', 'PETG', 'ABS', 'ASA', 'TPU', 'Nylon', 'Resina'] %}<option value="{{ m }}">{% endfor %}
+  </datalist>
+
+  <div class="tabela" style="margin-top: 1rem">
+    <table>
+      <thead><tr><th>Nome</th><th>Material</th><th class="num">€/kg</th><th class="num">Peças</th><th></th></tr></thead>
+      <tbody>
+        {% for f in filamentos %}
+          <tr>
+            <td><input name="nome" form="fil-{{ f.id }}" value="{{ f.nome }}" required aria-label="Nome"></td>
+            <td><input name="material" form="fil-{{ f.id }}" value="{{ f.material }}" list="materiais" style="max-width: 7rem" aria-label="Material"></td>
+            <td><input type="number" name="preco_kg" form="fil-{{ f.id }}" value="{{ '%g'|format(f.preco_kg) }}" step="any" min="0" style="max-width: 6rem; margin-left: auto; display: block" aria-label="Preço por kg"></td>
+            <td class="num">{{ f.n_pecas }}</td>
+            <td>
+              <div class="acoes">
+                <form method="post" action="{{ url_for('.filamentos') }}" id="fil-{{ f.id }}">
+                  <input type="hidden" name="id" value="{{ f.id }}">
+                  <button class="secundario pequeno">Guardar</button>
+                </form>
+                <form method="post" action="{{ url_for('.apagar_filamento', id=f.id) }}"
+                      data-confirmar="Apagar este filamento?{{ ' As ' ~ f.n_pecas ~ ' peça(s) que o usam ficam sem filamento.' if f.n_pecas }}">
+                  <button class="perigo pequeno">Apagar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="vazio">Ainda não há filamentos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="cartao">
+  <h2>Como é calculado (por unidade)</h2>
+  <ul class="muted">
+    <li><strong>Material</strong> = gramas ÷ 1000 × preço por kg do filamento</li>
+    <li><strong>Eletricidade</strong> = potência (W) ÷ 1000 × horas × preço do kWh</li>
+    <li><strong>Desgaste</strong> = (preço da impressora ÷ vida útil + manutenção por hora) × horas</li>
+    <li><strong>Mão de obra</strong> = (preparação + pós-processamento) em minutos ÷ 60 × valor da hora</li>
+    <li><strong>Falhas</strong> = % sobre a soma de tudo o que está acima</li>
+    <li><strong>Margem</strong> = % sobre o custo de produção</li>
+    <li><strong>Preço</strong> = custo de produção + margem + extras (os extras não levam margem)</li>
+  </ul>
+</section>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titulo %}{{ receita.nome }}{% endblock %}
+{% block conteudo %}
+{% include "receitas/_subnav.html" %}
+
+<div class="cabecalho">
+  <div>
+    <h1>{{ receita.nome }}</h1>
+    <span class="etiqueta">{{ receita.tipo }}</span>
+    {% if receita.tamanho %}<span class="muted">· {{ receita.tamanho }}</span>{% endif %}
+  </div>
+  <div class="acoes">
+    <a class="botao secundario" href="{{ url_for('.editar', id=receita.id) }}">Editar</a>
+    <form method="post" action="{{ url_for('.duplicar', id=receita.id) }}">
+      <button class="secundario" title="Criar uma variação desta receita">Duplicar</button>
+    </form>
+    <form method="post" action="{{ url_for('.apagar', id=receita.id) }}" data-confirmar="Apagar esta receita?">
+      <button class="perigo">Apagar</button>
+    </form>
+  </div>
+</div>
+
+<div class="numeros">
+  <div class="numero">
+    <div class="rotulo">Custo total{% if fator != 1 %} (×{{ fator|num }}){% endif %}</div>
+    <div class="valor">{{ total|eur }}</div>
+  </div>
+  <div class="numero">
+    <div class="rotulo">Porções</div>
+    <div class="valor">{{ (receita.porcoes * fator)|num(1) }}</div>
+  </div>
+  <div class="numero">
+    <div class="rotulo">Custo por porção</div>
+    <div class="valor">{{ (total / (receita.porcoes * fator))|eur }}</div>
+  </div>
+</div>
+
+<div class="grelha">
+  <section class="cartao">
+    <div class="cabecalho" style="margin-bottom: .5rem">
+      <h2 style="margin: 0">Ingredientes</h2>
+      <form method="get" class="fatores">
+        <span class="muted pequeno">Multiplicar:</span>
+        {% for x in [0.5, 1, 1.5, 2] %}
+          <a class="botao pequeno {{ '' if x == fator else 'secundario' }}" href="{{ url_for('.ver', id=receita.id, x=x) }}">×{{ x|num }}</a>
+        {% endfor %}
+        <input type="number" name="x" step="any" min="0.1" value="{{ fator }}" style="width: 4.5rem" aria-label="Fator">
+      </form>
+    </div>
+    {% if linhas %}
+      <table>
+        <tbody>
+          {% for l in linhas %}
+            <tr>
+              <td>{{ l.nome }}</td>
+              <td class="num">{{ l.quantidade|num }} {{ l.unidade }}</td>
+              <td class="num muted">{{ l.custo|eur }}</td>
+            </tr>
+          {% endfor %}
+          <tr class="total"><td>Total</td><td></td><td class="num">{{ total|eur }}</td></tr>
+        </tbody>
+      </table>
+    {% else %}
+      <p class="vazio">Esta receita ainda não tem ingredientes.</p>
+    {% endif %}
+  </section>
+
+  <section class="cartao">
+    <h2>Preparação</h2>
+    {% if receita.preparo %}<p class="preparo">{{ receita.preparo }}</p>{% else %}<p class="vazio">Sem passos escritos.</p>{% endif %}
+    {% if receita.notas %}
+      <h2 style="margin-top: 1.25rem">Notas</h2>
+      <p class="preparo">{{ receita.notas }}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
