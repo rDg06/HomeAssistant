@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Mudar palavra-passe{% endblock %}
+{% block conteudo %}
+<section class="cartao entrada">
+  <h1>Mudar palavra-passe</h1>
+  <form method="post" class="campos">
+    <label class="largo">Palavra-passe atual
+      <input type="password" name="atual" autocomplete="current-password" required autofocus>
+    </label>
+    <label class="largo">Nova palavra-passe (mínimo {{ minimo }} caracteres)
+      <input type="password" name="nova" minlength="{{ minimo }}" autocomplete="new-password" required>
+    </label>
+    <label class="largo">Repetir a nova
+      <input type="password" name="confirmar" minlength="{{ minimo }}" autocomplete="new-password" required>
+    </label>
+    <div class="acoes largo" style="justify-content: flex-start">
+      <button type="submit">Mudar</button>
+      <a class="botao secundario" href="{{ url_for('inicio') }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

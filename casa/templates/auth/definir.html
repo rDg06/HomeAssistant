@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block titulo %}Criar palavra-passe{% endblock %}
+{% block conteudo %}
+<section class="cartao entrada">
+  <h1>🔒 Criar palavra-passe</h1>
+  <p class="muted">Escolhe a palavra-passe da casa. Vai ser pedida para abrir a app no PC e no telemóvel.</p>
+  <form method="post" class="campos">
+    <label class="largo">Palavra-passe (mínimo {{ minimo }} caracteres)
+      <input type="password" name="passe" minlength="{{ minimo }}" autocomplete="new-password" required autofocus>
+    </label>
+    <label class="largo">Repetir palavra-passe
+      <input type="password" name="confirmar" minlength="{{ minimo }}" autocomplete="new-password" required>
+    </label>
+    <button type="submit" class="largo">Criar e entrar</button>
+  </form>
+</section>
+{% endblock %}

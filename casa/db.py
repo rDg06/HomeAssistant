@@ -29,6 +29,13 @@ MIGRACOES = {
         );
         CREATE INDEX idx_rendimentos_data ON rendimentos(data);
     """,
+    4: """
+        -- Definições de texto da app (por agora, só o hash da palavra-passe).
+        CREATE TABLE definicoes (
+            chave TEXT PRIMARY KEY,
+            valor TEXT NOT NULL
+        );
+    """,
 }
 
 

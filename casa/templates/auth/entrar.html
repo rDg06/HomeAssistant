@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block titulo %}Entrar{% endblock %}
+{% block conteudo %}
+<section class="cartao entrada">
+  <h1>🔒 Entrar</h1>
+  <form method="post" class="campos">
+    <input type="hidden" name="seguinte" value="{{ seguinte }}">
+    <label class="largo">Palavra-passe
+      <input type="password" name="passe" autocomplete="current-password" required autofocus>
+    </label>
+    <button type="submit" class="largo">Entrar</button>
+  </form>
+</section>
+{% endblock %}
