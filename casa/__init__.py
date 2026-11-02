@@ -36,6 +36,11 @@ def create_app(config=None):
     app.register_blueprint(impressao.bp)
     app.register_blueprint(receitas.bp)
 
+    @app.errorhandler(OverflowError)
+    def numero_grande_demais(erro):
+        # Um id ou número absurdo (ex.: /gastos/99999999999999999999/editar) não cabe no SQLite.
+        return "Pedido inválido: número grande demais.", 400
+
     for filtro in (util.eur, util.num, util.data_curta, util.duracao):
         app.add_template_filter(filtro)
     app.jinja_env.globals["nome_mes"] = util.nome_mes

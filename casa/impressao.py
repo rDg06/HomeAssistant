@@ -133,13 +133,16 @@ def calculadora():
         peca_id = f.get("id", type=int)
         if peca_id:
             dados["id"] = peca_id
-            db.execute(
+            alterados = db.execute(
                 """UPDATE pecas SET nome = :nome, filamento_id = :filamento_id, gramas = :gramas,
                    horas = :horas, horas_trabalho = :horas_trabalho, custos_extra = :custos_extra,
                    preco_venda = :preco_venda, notas = :notas WHERE id = :id""",
                 dados,
-            )
-            flash(f"Peça \"{dados['nome']}\" atualizada.", "ok")
+            ).rowcount
+            if alterados:
+                flash(f"Peça \"{dados['nome']}\" atualizada.", "ok")
+            else:
+                flash("Essa peça já não existe (foi apagada entretanto).", "erro")
         else:
             db.execute(
                 """INSERT INTO pecas (nome, filamento_id, gramas, horas, horas_trabalho, custos_extra, preco_venda, notas)
@@ -223,7 +226,7 @@ def nova_venda():
             data_venda,
             peca_id,
             descricao,
-            max(1, f.get("quantidade", type=int) or 1),
+            min(max(1, f.get("quantidade", type=int) or 1), 100000),
             preco_unit,
             custo_unit,
             max(0.0, parse_num(f.get("outros_custos"))),
@@ -251,12 +254,12 @@ def registar_orcamento():
             linha = (
                 hoje,
                 str(item.get("nome") or "Impressão 3D")[:200],
-                max(1, int(item.get("qtd") or 1)),
+                min(max(1, int(item.get("qtd") or 1)), 100000),
                 float(item["preco_unit"]),
                 float(item.get("custo_unit") or 0),
                 str(item.get("cliente") or "")[:200],
             )
-        except (KeyError, TypeError, ValueError):
+        except (KeyError, TypeError, ValueError, OverflowError):
             abort(400)
         if not all(math.isfinite(v) and v >= 0 for v in linha[3:5]):
             abort(400)

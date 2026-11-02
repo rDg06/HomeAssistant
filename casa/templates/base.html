@@ -31,7 +31,13 @@
   </main>
   <script>
     const fmtEur = v => v.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
-    const lerNum = t => parseFloat(String(t || '0').replace(',', '.')) || 0;
+    // Igual a parse_num() em util.py: "1,5", "1.234,50" e "2.5".
+    const lerNum = t => {
+      let s = String(t || '').replace(/[€\s]/g, '');
+      if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : 0;
+    };
 
     // Confirmação dentro da página (as janelas confirm() do browser podem estar bloqueadas).
     // O 1.º clique pede confirmação no próprio botão; o 2.º, nos 4 segundos seguintes, confirma.

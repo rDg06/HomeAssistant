@@ -41,7 +41,9 @@ class ErroPreco(Exception):
 
 def link_valido(link):
     url = urlparse(link or "")
-    return url.scheme == "https" and (url.hostname or "").endswith("continente.pt")
+    host = url.hostname or ""
+    # Só o próprio site (e não, por exemplo, "falsocontinente.pt").
+    return url.scheme == "https" and (host == "continente.pt" or host.endswith(".continente.pt"))
 
 
 def _descarregar(link):

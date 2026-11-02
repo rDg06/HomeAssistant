@@ -13,7 +13,7 @@
         {% for tipo, receitas in grupos.items() %}
           <optgroup label="{{ tipo }}">
             {% for r in receitas %}
-              <option value="{{ r.id }}" {{ 'selected' if r.id == escolhida }}>{{ r.nome }}{{ ' · ' ~ r.tamanho if r.tamanho }} ({{ r.custo|eur }})</option>
+              <option value="{{ r.id }}" data-nome="{{ r.nome }}" {{ 'selected' if r.id == escolhida }}>{{ r.nome }}{{ ' · ' ~ r.tamanho if r.tamanho }} ({{ r.custo|eur }})</option>
             {% endfor %}
           </optgroup>
         {% endfor %}
@@ -233,7 +233,7 @@
   document.getElementById('copiar').addEventListener('click', async e => {
     const botao = e.currentTarget;
     const partes = [...document.querySelectorAll('#receitas select')]
-      .filter(s => s.value).map(s => s.selectedOptions[0].textContent.replace(/\s*\(.*\)\s*$/, '').split(' · ')[0]);
+      .filter(s => s.value).map(s => s.selectedOptions[0].dataset.nome);
     const extras = [...document.querySelectorAll('#extras tr')]
       .filter(tr => tr.querySelector('[name=extra_nome]').value.trim() && lerNum(tr.querySelector('[name=extra_preco]').value) > 0)
       .map(tr => tr.querySelector('[name=extra_nome]').value.trim());

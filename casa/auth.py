@@ -34,7 +34,8 @@ def _iniciar_sessao(hash_atual):
 
 def _destino_seguro(destino):
     """Só deixa voltar a páginas desta app (nunca a outro site)."""
-    if destino and destino.startswith("/") and not destino.startswith("//"):
+    # "//site" e "/\site" são tratados pelos browsers como endereços de outro site.
+    if destino and destino.startswith("/") and not destino.startswith(("//", "/\\")):
         return destino
     return url_for("inicio")
 

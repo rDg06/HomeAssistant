@@ -86,7 +86,7 @@ def _guardar(receita_id=None):
     dados = {
         "nome": nome,
         "tipo": f.get("tipo") if f.get("tipo") in TIPOS else "Outro",
-        "porcoes": max(1, f.get("porcoes", type=int) or 1),
+        "porcoes": min(max(1, f.get("porcoes", type=int) or 1), 10000),
         "tamanho": f.get("tamanho", "").strip(),
         "preparo": f.get("preparo", "").strip(),
         "notas": f.get("notas", "").strip(),
@@ -382,7 +382,7 @@ def _ler_orcamento(db):
         "nome": nome[:120],
         "cliente": f.get("cliente", "").strip()[:120],
         "data_entrega": data_valida(f.get("data_entrega")),
-        "fatias": max(0, f.get("fatias", type=int) or 0),
+        "fatias": min(max(0, f.get("fatias", type=int) or 0), 10000),
         "notas": f.get("notas", "").strip(),
     }
     return colunas, dados
@@ -452,10 +452,12 @@ def orcamento(id=None):
 
     if atual is not None:
         dados = json.loads(atual["dados"])
-        apagadas = [l["nome"] for l in dados["receitas"] if l["id"] not in custos]
+        # (custos só tem as receitas com ingredientes, por isso confirma-se na tabela das receitas.)
+        existentes = {r[0] for r in db.execute("SELECT id FROM receitas")}
+        apagadas = [l["nome"] for l in dados["receitas"] if l["id"] not in existentes]
         if apagadas:
             flash("Já não existe(m): " + ", ".join(apagadas) + ". Escolhe outra receita e guarda.", "erro")
-        dados["receitas"] = [l for l in dados["receitas"] if l["id"] in custos]
+        dados["receitas"] = [l for l in dados["receitas"] if l["id"] in existentes]
     else:
         # Orçamento novo: valores por defeito e os extras (caixa, velas...) do último orçamento, com os preços.
         cfg = {r["chave"]: r["valor"] for r in db.execute("SELECT chave, valor FROM config")}
