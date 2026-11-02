@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import ajuda %}
 {% block titulo %}Orçamentos de bolos{% endblock %}
 {% block conteudo %}
 {% include "receitas/_subnav.html" %}
@@ -7,7 +8,32 @@
   <a class="botao" href="{{ url_for('.orcamento') }}">+ Novo orçamento</a>
 </div>
 
+{% if por_mes %}
 <section class="cartao">
+  <h2>Por mês {{ ajuda('Cada bolo conta no mês da entrega. As despesas são o custo total: ingredientes, caixa e extras, luz do forno e mão de obra.') }}</h2>
+  <div class="tabela">
+    <table class="responsiva">
+      <thead>
+        <tr><th>Mês</th><th class="num">Bolos</th><th class="num">Faturado</th><th class="num">Despesas</th><th class="num">Lucro</th></tr>
+      </thead>
+      <tbody>
+        {% for m in por_mes %}
+          <tr>
+            <td class="titulo">{{ nome_mes(m.mes) }}</td>
+            <td class="num" data-rotulo="Bolos">{{ m.n }}</td>
+            <td class="num" data-rotulo="Faturado">{{ m.faturado|eur }}</td>
+            <td class="num muted" data-rotulo="Despesas">{{ m.despesas|eur }}</td>
+            <td class="num {{ 'negativo' if m.lucro < 0 else 'positivo' }}" data-rotulo="Lucro"><b>{{ m.lucro|eur }}</b></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="cartao">
+  <h2>Orçamentos</h2>
   <div class="tabela">
     <table class="responsiva">
       <thead>

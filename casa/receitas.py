@@ -6,7 +6,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 
 from . import precos
 from .db import get_db
-from .util import data_valida, eur, parse_num, sem_acentos
+from .util import data_valida, eur, mes_valido, parse_num, sem_acentos
 
 bp = Blueprint("receitas", __name__, url_prefix="/receitas")
 # Ao abrir qualquer página das Receitas, os preços com mais de 30 dias são atualizados em segundo plano.
@@ -398,10 +398,18 @@ def _receitas_por_tipo(db, custos):
 
 @bp.route("/orcamentos")
 def orcamentos():
-    lista_orc = get_db().execute(
+    db = get_db()
+    lista_orc = db.execute(
         "SELECT * FROM orcamentos_bolo ORDER BY COALESCE(data_entrega, criado_em) DESC, id DESC"
     ).fetchall()
-    return render_template("receitas/orcamentos.html", orcamentos=lista_orc)
+    # Cada bolo conta no mês da entrega (ou no mês em que foi feito o orçamento, se não tiver data).
+    por_mes = db.execute(
+        """SELECT substr(COALESCE(data_entrega, criado_em), 1, 7) AS mes, COUNT(*) AS n,
+                  SUM(preco) AS faturado, SUM(custo) AS despesas, SUM(preco - custo) AS lucro
+           FROM orcamentos_bolo GROUP BY 1 ORDER BY 1 DESC"""
+    ).fetchall()
+    return render_template("receitas/orcamentos.html", orcamentos=lista_orc,
+                           por_mes=[m for m in por_mes if mes_valido(m["mes"])])
 
 
 @bp.route("/orcamentos/novo", methods=["GET", "POST"])
