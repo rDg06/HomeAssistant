@@ -278,6 +278,15 @@ tr.inativa td { opacity: .55; }
   .link-celula input, .preco-celula input { width: 100% !important; }
   .link-celula span { max-width: 100%; white-space: normal; }
 }
+/* Orçamento de bolo no telemóvel: o nome da receita/extra numa linha, os números por baixo */
+@media (max-width: 640px) {
+  table.linhas-orc thead { display: none; }
+  table.linhas-orc tr { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: .35rem; align-items: center;
+                        padding: .5rem 0; border-bottom: 1px solid var(--border); }
+  table.linhas-orc td { display: block; width: auto !important; border: 0; padding: 0; }
+  table.linhas-orc td:first-child { grid-column: 1 / -1; }
+  table.linhas-orc select, table.linhas-orc input { width: 100%; }
+}
 /* Tabela com o conteúdo das colunas à esquerda e os botões à direita (só no computador; no telemóvel são cartões) */
 @media (min-width: 641px) {
   table.esquerda th, table.esquerda td { text-align: left; }

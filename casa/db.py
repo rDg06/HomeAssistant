@@ -76,6 +76,24 @@ MIGRACOES = {
         );
         CREATE INDEX idx_precos_historico ON precos_historico(ingrediente_id, data);
     """,
+    7: """
+        -- Orçamentos de bolos (massa, recheio, caixa, luz do forno, mão de obra e margem).
+        CREATE TABLE orcamentos_bolo (
+            id INTEGER PRIMARY KEY,
+            nome TEXT NOT NULL,
+            cliente TEXT NOT NULL DEFAULT '',
+            data_entrega TEXT,
+            fatias INTEGER NOT NULL DEFAULT 0,
+            dados TEXT NOT NULL,           -- JSON com as receitas, extras e valores usados no cálculo
+            custo REAL NOT NULL,
+            preco REAL NOT NULL,
+            notas TEXT NOT NULL DEFAULT '',
+            criado_em TEXT NOT NULL DEFAULT (date('now'))
+        );
+        -- Valores por defeito dos orçamentos (o preço do kWh é o mesmo da impressão 3D).
+        INSERT OR IGNORE INTO config (chave, valor) VALUES
+            ('bolo_forno_w', 2000), ('bolo_hora_trabalho', 8), ('bolo_margem_pct', 30);
+    """,
 }
 
 

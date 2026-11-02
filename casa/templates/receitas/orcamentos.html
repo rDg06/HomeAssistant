@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Orçamentos de bolos{% endblock %}
+{% block conteudo %}
+{% include "receitas/_subnav.html" %}
+<div class="cabecalho">
+  <h1>Orçamentos de bolos</h1>
+  <a class="botao" href="{{ url_for('.orcamento') }}">+ Novo orçamento</a>
+</div>
+
+<section class="cartao">
+  <div class="tabela">
+    <table class="responsiva">
+      <thead>
+        <tr><th>Entrega</th><th>Bolo</th><th>Cliente</th><th class="num">Fatias</th><th class="num">Custo</th>
+            <th class="num">Preço</th><th class="num">Lucro</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for o in orcamentos %}
+          <tr>
+            <td data-rotulo="Entrega">{{ o.data_entrega|data_curta if o.data_entrega else '—' }}</td>
+            <td class="titulo"><a href="{{ url_for('.orcamento', id=o.id) }}">{{ o.nome }}</a></td>
+            <td data-rotulo="Cliente">{{ o.cliente or '—' }}</td>
+            <td class="num" data-rotulo="Fatias">{{ o.fatias or '—' }}</td>
+            <td class="num muted" data-rotulo="Custo">{{ o.custo|eur }}</td>
+            <td class="num" data-rotulo="Preço"><b>{{ o.preco|eur }}</b></td>
+            <td class="num {{ 'positivo' if o.preco >= o.custo else 'negativo' }}" data-rotulo="Lucro">{{ (o.preco - o.custo)|eur }}</td>
+            <td>
+              <div class="acoes">
+                <a class="botao secundario pequeno" href="{{ url_for('.orcamento', id=o.id) }}">Abrir</a>
+                <form method="post" action="{{ url_for('.duplicar_orcamento', id=o.id) }}">
+                  <button class="secundario pequeno">Duplicar</button>
+                </form>
+                <form method="post" action="{{ url_for('.apagar_orcamento', id=o.id) }}" data-confirmar="Apagar este orçamento?">
+                  <button class="perigo pequeno">Apagar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="vazio">Ainda não há orçamentos. Carrega em "+ Novo orçamento" para fazer o primeiro.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

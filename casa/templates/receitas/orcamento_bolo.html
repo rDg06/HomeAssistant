@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ajuda %}
+{% block titulo %}{{ orc.nome if orc else 'Novo orçamento' }}{% endblock %}
+
+{# Número para pôr num campo: vazio fica vazio, 1.0 fica "1". #}
+{% macro n(valor) %}{{ '' if valor is none or valor == '' else '%g'|format(valor) }}{% endmacro %}
+
+{% macro linha_receita(grupos, escolhida=none, vezes=1) %}
+  <tr>
+    <td>
+      <select name="receita_id" aria-label="Receita">
+        <option value="">— escolher receita —</option>
+        {% for tipo, receitas in grupos.items() %}
+          <optgroup label="{{ tipo }}">
+            {% for r in receitas %}
+              <option value="{{ r.id }}" {{ 'selected' if r.id == escolhida }}>{{ r.nome }}{{ ' · ' ~ r.tamanho if r.tamanho }} ({{ r.custo|eur }})</option>
+            {% endfor %}
+          </optgroup>
+        {% endfor %}
+      </select>
+    </td>
+    <td style="width: 5rem"><input type="number" name="vezes" step="any" min="0" inputmode="decimal" value="{{ n(vezes) }}" aria-label="Quantas vezes a receita" title="Quantas vezes a receita (ex.: 1,5 para uma forma maior)"></td>
+    <td class="num custo" style="width: 4.8rem"></td>
+    <td style="width: 2.5rem"><button type="button" class="perigo pequeno remover" title="Remover">✕</button></td>
+  </tr>
+{% endmacro %}
+
+{% macro linha_extra(nome='', qtd=1, preco='') %}
+  <tr>
+    <td><input name="extra_nome" value="{{ nome }}" list="extras-sugeridos" placeholder="ex.: Caixa" aria-label="Extra"></td>
+    <td style="width: 3.8rem"><input type="number" name="extra_qtd" step="any" min="0" inputmode="decimal" value="{{ n(qtd) }}" aria-label="Quantidade"></td>
+    <td style="width: 5rem"><input type="number" name="extra_preco" step="0.01" min="0" inputmode="decimal" value="{{ n(preco) }}" placeholder="€" aria-label="Preço por unidade (€)"></td>
+    <td class="num custo" style="width: 4.8rem"></td>
+    <td style="width: 2.5rem"><button type="button" class="perigo pequeno remover" title="Remover">✕</button></td>
+  </tr>
+{% endmacro %}
+
+{% block conteudo %}
+{% include "receitas/_subnav.html" %}
+<div class="cabecalho">
+  <h1>{{ 'Orçamento: ' ~ orc.nome if orc else 'Novo orçamento de bolo' }}</h1>
+  <a class="botao secundario" href="{{ url_for('.orcamentos') }}">Todos os orçamentos</a>
+</div>
+
+{% if not grupos %}
+  <div class="aviso erro">Ainda não tens receitas. <a href="{{ url_for('.nova') }}">Cria primeiro a massa e o recheio</a> para o custo dos ingredientes entrar aqui.</div>
+{% endif %}
+
+<form method="post" id="orcamento">
+  <div class="grelha">
+    <div class="coluna">
+      <section class="cartao">
+        <h2>O bolo</h2>
+        <div class="campos">
+          <label class="largo">Nome<input name="nome" value="{{ orc.nome if orc }}" required placeholder="ex.: Bolo de anos da Maria"></label>
+          <label>Cliente<input name="cliente" value="{{ orc.cliente if orc }}" placeholder="opcional" autocomplete="off"></label>
+          <label>Data de entrega<input type="date" name="data_entrega" value="{{ orc.data_entrega or '' if orc }}"></label>
+          <label><span>Fatias {{ ajuda('Para mostrar o preço por fatia. Opcional.') }}</span>
+            <input type="number" name="fatias" min="0" step="1" value="{{ orc.fatias or '' if orc }}" placeholder="ex.: 20"></label>
+        </div>
+      </section>
+
+      <section class="cartao">
+        <h2>Massa, recheio e cobertura</h2>
+        <p class="muted pequeno" style="margin-top: -.25rem">Escolhe as receitas. Usa 2 ou 1,5 em "vezes" se o bolo levar mais do que uma receita.
+          O custo vem dos preços atuais dos ingredientes.</p>
+        <div class="tabela">
+          <table class="linhas-orc">
+            <thead><tr><th>Receita</th><th>Vezes</th><th class="num">Custo</th><th></th></tr></thead>
+            <tbody id="receitas">
+              {% for l in dados.receitas %}{{ linha_receita(grupos, l.id, l.vezes) }}{% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-bottom: 0"><button type="button" class="secundario pequeno" data-adicionar="receitas">+ Receita</button></p>
+      </section>
+
+      <section class="cartao">
+        <h2>Caixa, decoração e outros</h2>
+        <div class="tabela">
+          <table class="linhas-orc">
+            <thead><tr><th>Extra</th><th>Qtd.</th><th>Preço un. (€)</th><th class="num">Total</th><th></th></tr></thead>
+            <tbody id="extras">
+              {% for e in dados.extras %}{{ linha_extra(e.nome, e.qtd, e.preco) }}{% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-bottom: 0"><button type="button" class="secundario pequeno" data-adicionar="extras">+ Extra</button>
+          <span class="muted pequeno" style="margin-left: .5rem">As linhas sem preço não contam.</span></p>
+        <datalist id="extras-sugeridos">
+          {% for e in extras_sugeridos %}<option value="{{ e }}">{% endfor %}
+          <option value="Fita"><option value="Flores"><option value="Pasta de açúcar"><option value="Impressão comestível">
+        </datalist>
+      </section>
+
+      <section class="cartao">
+        <h2>Luz, trabalho e margem</h2>
+        <div class="campos">
+          <label><span>Tempo de forno (min) {{ ajuda('Soma de todas as fornadas, incluindo o pré-aquecimento.') }}</span>
+            <input type="number" name="forno_min" step="any" min="0" inputmode="decimal" value="{{ n(dados.forno_min) }}" placeholder="ex.: 50"></label>
+          <label><span>Potência do forno (W) {{ ajuda('Vem na etiqueta do forno. Um forno elétrico tem normalmente 2000 a 3000 W.') }}</span>
+            <input type="number" name="forno_w" step="any" min="0" inputmode="decimal" value="{{ n(dados.forno_w) }}"></label>
+          <label><span>Preço da luz (€/kWh) {{ ajuda('O mesmo valor da configuração da impressão 3D.') }}</span>
+            <input type="number" name="preco_kwh" step="any" min="0" inputmode="decimal" value="{{ n(dados.preco_kwh) }}"></label>
+          <label><span>Horas de trabalho {{ ajuda('Tempo a fazer, montar e decorar o bolo (ex.: 2,5).') }}</span>
+            <input type="number" name="horas" step="any" min="0" inputmode="decimal" value="{{ n(dados.horas) }}" placeholder="ex.: 3"></label>
+          <label>Valor por hora (€)
+            <input type="number" name="valor_hora" step="any" min="0" inputmode="decimal" value="{{ n(dados.valor_hora) }}"></label>
+          <label><span>Margem (%) {{ ajuda('Percentagem somada ao custo total para chegar ao preço sugerido.') }}</span>
+            <input type="number" name="margem_pct" step="any" min="0" inputmode="decimal" value="{{ n(dados.margem_pct) }}"></label>
+          <label class="largo check"><input type="checkbox" name="predefinicoes" value="1">
+            Usar a potência, o preço da luz, o valor por hora e a margem nos próximos orçamentos</label>
+        </div>
+      </section>
+
+      <section class="cartao">
+        <div class="campos">
+          <label><span>Preço final (€) {{ ajuda('Opcional. Deixa vazio para usar o preço sugerido, ou escreve um valor arredondado.') }}</span>
+            <input type="number" name="preco_final" step="0.01" min="0" inputmode="decimal" value="{{ n(dados.preco_final) }}"></label>
+          <label class="largo">Notas<textarea name="notas" rows="3" placeholder="sabor, tema, mensagem no bolo, alergias…">{{ orc.notas if orc }}</textarea></label>
+        </div>
+      </section>
+    </div>
+
+    <div class="coluna">
+      <div class="destaque" aria-live="polite">
+        <div class="muted-claro">Preço do bolo</div>
+        <div class="enorme" data-r="preco">0,00 €</div>
+        <div class="linha-destaque">
+          <span id="por-fatia"></span>
+          <span>Lucro: <b data-r="lucro"></b></span>
+        </div>
+        <div class="acoes" style="justify-content: flex-start; margin-top: .9rem">
+          <button type="submit" class="claro">{{ 'Guardar alterações' if orc else 'Guardar orçamento' }}</button>
+          <button type="button" class="claro-sec" id="copiar">Copiar para o cliente</button>
+        </div>
+      </div>
+
+      <section class="cartao">
+        <h2>Detalhe do cálculo</h2>
+        <table class="detalhe">
+          <tbody>
+            <tr><td>Ingredientes (receitas)</td><td class="num" data-r="ingredientes"></td></tr>
+            <tr><td>Caixa, decoração e outros</td><td class="num" data-r="extras"></td></tr>
+            <tr><td>Luz do forno <span class="muted" id="kwh"></span></td><td class="num" data-r="energia"></td></tr>
+            <tr><td>Mão de obra</td><td class="num" data-r="mao_obra"></td></tr>
+            <tr class="forte"><td>Custo total</td><td class="num" data-r="custo"></td></tr>
+            <tr><td>Margem <span class="muted" id="margem-pct"></span></td><td class="num" data-r="margem"></td></tr>
+            <tr class="forte"><td>Preço sugerido</td><td class="num" data-r="preco_sugerido"></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      {% if orc %}
+        <div class="acoes" style="justify-content: flex-start">
+          <button type="submit" form="duplicar" class="secundario pequeno">Duplicar</button>
+          <button type="submit" form="apagar" class="perigo pequeno">Apagar orçamento</button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+{% if orc %}
+  <form method="post" id="duplicar" action="{{ url_for('.duplicar_orcamento', id=orc.id) }}"></form>
+  <form method="post" id="apagar" action="{{ url_for('.apagar_orcamento', id=orc.id) }}" data-confirmar="Apagar este orçamento?"></form>
+{% endif %}
+
+<template id="modelo-receitas">{{ linha_receita(grupos) }}</template>
+<template id="modelo-extras">{{ linha_extra() }}</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const CUSTOS = {{ custos|tojson }};
+  const form = document.getElementById('orcamento');
+  const v = nome => Math.max(0, lerNum(form.elements[nome].value));
+  let atual = {};
+
+  // Mesmas contas que calcular_bolo() em receitas.py.
+  function calcular() {
+    const r = { ingredientes: 0, extras: 0 };
+    for (const tr of document.querySelectorAll('#receitas tr')) {
+      const custo = (CUSTOS[tr.querySelector('select').value] || 0) * Math.max(0, lerNum(tr.querySelector('[name=vezes]').value));
+      tr.querySelector('.custo').textContent = fmtEur(custo);
+      r.ingredientes += custo;
+    }
+    for (const tr of document.querySelectorAll('#extras tr')) {
+      const nome = tr.querySelector('[name=extra_nome]').value.trim();
+      const qtd = tr.querySelector('[name=extra_qtd]').value === '' ? 1 : Math.max(0, lerNum(tr.querySelector('[name=extra_qtd]').value));
+      const custo = nome ? qtd * Math.max(0, lerNum(tr.querySelector('[name=extra_preco]').value)) : 0;
+      tr.querySelector('.custo').textContent = fmtEur(custo);
+      r.extras += custo;
+    }
+    const kwh = v('forno_min') / 60 * v('forno_w') / 1000;
+    r.energia = kwh * v('preco_kwh');
+    r.mao_obra = v('horas') * v('valor_hora');
+    r.custo = r.ingredientes + r.extras + r.energia + r.mao_obra;
+    r.margem = r.custo * v('margem_pct') / 100;
+    r.preco_sugerido = r.custo + r.margem;
+    r.preco = form.elements.preco_final.value !== '' ? v('preco_final') : r.preco_sugerido;
+    r.lucro = r.preco - r.custo;
+
+    for (const el of document.querySelectorAll('[data-r]')) el.textContent = fmtEur(r[el.dataset.r]);
+    document.getElementById('kwh').textContent = `(${kwh.toLocaleString('pt-PT', { maximumFractionDigits: 2 })} kWh)`;
+    document.getElementById('margem-pct').textContent = `(${v('margem_pct').toLocaleString('pt-PT')}%)`;
+    const fatias = Math.round(v('fatias'));
+    document.getElementById('por-fatia').textContent = fatias ? `Por fatia: ${fmtEur(r.preco / fatias)}` : '';
+    form.elements.preco_final.placeholder = r.preco_sugerido.toFixed(2);
+    atual = r;
+  }
+
+  function adicionar(lista, focar = true) {
+    const corpo = document.getElementById(lista);
+    corpo.append(document.getElementById('modelo-' + lista).content.cloneNode(true));
+    calcular();
+    if (focar) corpo.lastElementChild.querySelector('select, input').focus();
+  }
+
+  for (const botao of document.querySelectorAll('[data-adicionar]')) {
+    botao.addEventListener('click', () => adicionar(botao.dataset.adicionar));
+  }
+  form.addEventListener('click', e => {
+    if (e.target.closest('.remover')) {
+      e.target.closest('tr').remove();
+      calcular();
+    }
+  });
+  form.addEventListener('input', calcular);
+  form.addEventListener('change', calcular);
+
+  // Texto para enviar ao cliente: o que leva o bolo e o preço (sem custos nem margem).
+  document.getElementById('copiar').addEventListener('click', async e => {
+    const botao = e.currentTarget;
+    const partes = [...document.querySelectorAll('#receitas select')]
+      .filter(s => s.value).map(s => s.selectedOptions[0].textContent.replace(/\s*\(.*\)\s*$/, '').split(' · ')[0]);
+    const extras = [...document.querySelectorAll('#extras tr')]
+      .filter(tr => tr.querySelector('[name=extra_nome]').value.trim() && lerNum(tr.querySelector('[name=extra_preco]').value) > 0)
+      .map(tr => tr.querySelector('[name=extra_nome]').value.trim());
+    const linhas = [form.elements.nome.value.trim() || 'Bolo'];
+    if (form.elements.data_entrega.value) linhas.push('Entrega: ' + form.elements.data_entrega.value.split('-').reverse().join('/'));
+    if (partes.length) linhas.push('Leva: ' + partes.join(', '));
+    if (extras.length) linhas.push('Inclui: ' + extras.join(', '));
+    const fatias = Math.round(v('fatias'));
+    linhas.push(`Preço: ${fmtEur(atual.preco)}` + (fatias ? ` (${fatias} fatias, ${fmtEur(atual.preco / fatias)} por fatia)` : ''));
+    const texto = linhas.join('\n');
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = texto;
+      document.body.append(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    botao.textContent = 'Copiado';
+    setTimeout(() => (botao.textContent = 'Copiar para o cliente'), 1500);
+  });
+
+  if (!document.querySelector('#receitas tr')) adicionar('receitas', false);
+  calcular();
+</script>
+{% endblock %}
