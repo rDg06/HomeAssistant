@@ -71,9 +71,32 @@
             </td>
             <td data-rotulo="Continente">
               <div class="link-celula">
-                <input type="url" name="link" form="{{ f }}" value="{{ i.link }}" placeholder="link (opcional)" aria-label="Link do Continente" inputmode="url">
+                <div class="link-linha">
+                  <input type="url" name="link" form="{{ f }}" value="{{ i.link }}" placeholder="link (opcional)" aria-label="Link do Continente" inputmode="url">
+                  {% if i.aviso_preco %}
+                    <button type="button" class="aviso-icone" data-abrir="aviso-{{ i.id }}" title="Há um problema com o preço do Continente" aria-label="Ver o problema com o preço">⚠</button>
+                  {% endif %}
+                </div>
                 {% if i.aviso_preco %}
-                  <span class="pequeno negativo" title="{{ i.aviso_preco }}">⚠ {{ i.aviso_preco }}</span>
+                  <dialog id="aviso-{{ i.id }}" class="janela" aria-labelledby="aviso-{{ i.id }}-titulo">
+                    <div class="janela-cabecalho">
+                      <h2 id="aviso-{{ i.id }}-titulo">⚠ {{ i.nome }}</h2>
+                      <button type="button" class="secundario pequeno" data-fechar aria-label="Fechar">✕</button>
+                    </div>
+                    <p>{{ i.aviso_preco }}</p>
+                    <p class="muted pequeno">Até resolveres, fica o preço que tens: {{ '%g'|format(i.qtd_embalagem) }} {{ i.unidade }} a {{ i.preco_embalagem|eur }}.
+                      <a href="{{ i.link }}" target="_blank" rel="noopener noreferrer">Abrir a página no Continente</a></p>
+                    <div class="acoes" style="justify-content: flex-end">
+                      <form method="post" action="{{ url_for('.tirar_link', id=i.id) }}">
+                        <button class="secundario" title="Fica com o preço posto à mão e o aviso desaparece">Tirar link</button>
+                      </form>
+                      {% if i.aviso_preco.startswith(aviso_embalagem) %}
+                        <form method="post" action="{{ url_for('.usar_embalagem_do_site', id=i.id) }}">
+                          <button title="Passa para a embalagem e o preço que estão no site">Usar a do site</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </dialog>
                 {% elif i.link and i.verificado_em %}
                   <span class="pequeno muted">✓ verificado a {{ i.verificado_em[:10]|data_curta }}{% if i.link %} · <a href="{{ i.link }}" target="_blank" rel="noopener noreferrer">abrir</a>{% endif %}</span>
                 {% elif not i.link %}
@@ -145,4 +168,17 @@
     </div>
   {% endif %}
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Avisos dos preços: o triângulo abre uma janela com a explicação e o que se pode fazer.
+  for (const botao of document.querySelectorAll('[data-abrir]')) {
+    botao.addEventListener('click', () => document.getElementById(botao.dataset.abrir).showModal());
+  }
+  for (const janela of document.querySelectorAll('dialog.janela')) {
+    for (const b of janela.querySelectorAll('[data-fechar]')) b.addEventListener('click', () => janela.close());
+    janela.addEventListener('click', e => { if (e.target === janela) janela.close(); });
+  }
+</script>
 {% endblock %}

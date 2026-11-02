@@ -35,6 +35,10 @@ UNIDADES = {
 }
 
 
+# Início do aviso de embalagem diferente (a janela do aviso mostra aí o botão "Usar a do site").
+AVISO_EMBALAGEM = "No site a embalagem é de"
+
+
 class ErroPreco(Exception):
     """Mensagem para mostrar ao utilizador quando não dá para ler o preço."""
 
@@ -124,7 +128,7 @@ def atualizar_ingrediente(db, ingrediente):
     if produto["quantidade"] and (produto["unidade"], produto["quantidade"]) != (
         ingrediente["unidade"], ingrediente["qtd_embalagem"]
     ):
-        aviso = (f"No site a embalagem é de {produto['quantidade']:g} {produto['unidade']} "
+        aviso = (f"{AVISO_EMBALAGEM} {produto['quantidade']:g} {produto['unidade']} "
                  f"(aqui está {ingrediente['qtd_embalagem']:g} {ingrediente['unidade']}). Confirma e corrige.")
         db.execute("UPDATE ingredientes SET verificado_em = ?, aviso_preco = ? WHERE id = ?",
                    (agora, aviso, ingrediente["id"]))
@@ -144,6 +148,27 @@ def atualizar_ingrediente(db, ingrediente):
     if produto["preco"] != ingrediente["preco_embalagem"]:
         return "mudou", f"{ingrediente['nome']}: {eur(ingrediente['preco_embalagem'])} → {eur(produto['preco'])}"
     return ("aviso" if aviso else "igual"), f"{ingrediente['nome']}: sem alteração ({eur(produto['preco'])})"
+
+
+def usar_embalagem_do_site(db, ingrediente):
+    """Aceita a embalagem e o preço que estão agora no site (quando a embalagem mudou). Devolve a mensagem."""
+    produto = ler_produto(ingrediente["link"])
+    if not produto["quantidade"]:
+        raise ErroPreco("O site não diz o tamanho da embalagem. Corrige a embalagem à mão.")
+    hoje = date.today().isoformat()
+    if produto["preco"] != ingrediente["preco_embalagem"]:
+        db.execute("INSERT INTO precos_historico (ingrediente_id, data, preco) VALUES (?, ?, ?)",
+                   (ingrediente["id"], hoje, produto["preco"]))
+    db.execute(
+        """UPDATE ingredientes SET unidade = ?, qtd_embalagem = ?, preco_embalagem = ?, atualizado_em = ?,
+           verificado_em = ?, aviso_preco = ? WHERE id = ?""",
+        (produto["unidade"], produto["quantidade"], produto["preco"], hoje,
+         datetime.now().isoformat(timespec="seconds"),
+         "" if produto["disponivel"] else "Esgotado no site (o preço pode não estar atualizado).", ingrediente["id"]),
+    )
+    db.commit()
+    return (f"{ingrediente['nome']}: agora {produto['quantidade']:g} {produto['unidade']} a {eur(produto['preco'])}, "
+            "como no site. As receitas que o usam já têm o novo custo.")
 
 
 def atualizar_todos(db, so_desatualizados=True):

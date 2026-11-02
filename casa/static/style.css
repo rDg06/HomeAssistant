@@ -291,6 +291,7 @@ tr.inativa td { opacity: .55; }
 @media (min-width: 641px) {
   table.esquerda th, table.esquerda td { text-align: left; }
   table.esquerda .preco-celula, table.esquerda .link-celula { align-items: flex-start; }
+  table.esquerda .acoes { flex-wrap: nowrap; }  /* ↻, Guardar e Apagar sempre na mesma linha */
 }
 .link, button.link {
   background: none;
@@ -445,3 +446,18 @@ button.armado, button.armado:hover { background: var(--danger); border-color: va
   table.responsiva td input, table.responsiva td select { width: 60% !important; max-width: none !important; margin: 0 !important; }
   table.responsiva td:empty { display: none; }
 }
+/* Triângulo de aviso (abre a janela com o problema) */
+.aviso-icone {
+  flex: none;
+  padding: .1rem .45rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--danger);
+  font-size: 1.1rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.aviso-icone:hover { border-color: var(--border); }
+.janela p { white-space: normal; }
+.link-linha { display: flex; align-items: center; gap: .35rem; width: 100%; }
+.link-linha input { flex: 1; min-width: 0; }

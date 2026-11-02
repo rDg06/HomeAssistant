@@ -269,6 +269,7 @@ def ingredientes():
         ingredientes=lista_ing,
         unidades=UNIDADES,
         n_com_link=sum(1 for i in lista_ing if i["link"]),
+        aviso_embalagem=precos.AVISO_EMBALAGEM,
         extras=_extras(db),
     )
 
@@ -282,6 +283,31 @@ def atualizar_preco(id):
     else:
         resultado, mensagem = precos.atualizar_ingrediente(db, ingrediente)
         flash(mensagem, "erro" if resultado == "aviso" else "ok")
+    return redirect(url_for(".ingredientes"))
+
+
+@bp.post("/ingredientes/<int:id>/usar-site")
+def usar_embalagem_do_site(id):
+    db = get_db()
+    ingrediente = db.execute("SELECT * FROM ingredientes WHERE id = ? AND link != ''", (id,)).fetchone()
+    if ingrediente is None:
+        flash("Esse ingrediente não tem link do Continente.", "erro")
+    else:
+        try:
+            flash(precos.usar_embalagem_do_site(db, ingrediente), "ok")
+        except precos.ErroPreco as erro:
+            flash(f"{ingrediente['nome']}: {erro}", "erro")
+    return redirect(url_for(".ingredientes"))
+
+
+@bp.post("/ingredientes/<int:id>/tirar-link")
+def tirar_link(id):
+    db = get_db()
+    ingrediente = db.execute("SELECT nome FROM ingredientes WHERE id = ?", (id,)).fetchone()
+    if ingrediente is not None:
+        db.execute("UPDATE ingredientes SET link = '', verificado_em = NULL, aviso_preco = '' WHERE id = ?", (id,))
+        db.commit()
+        flash(f"Tirei o link de \"{ingrediente['nome']}\". O preço passa a ser posto à mão.", "ok")
     return redirect(url_for(".ingredientes"))
 
 
