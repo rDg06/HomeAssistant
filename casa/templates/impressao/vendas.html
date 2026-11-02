@@ -1,13 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import escolher_mes %}
 {% block titulo %}Vendas 3D{% endblock %}
 {% block conteudo %}
 {% include "impressao/_subnav.html" %}
 
 <div class="mes-nav">
   <h1>Vendas · {{ nome_mes(mes) }}</h1>
-  <form method="get">
-    <input type="month" name="mes" value="{{ mes }}" onchange="this.form.submit()" aria-label="Escolher mês">
-  </form>
+  {{ escolher_mes(mes) }}
 </div>
 
 <div class="numeros">
@@ -48,7 +47,7 @@
   <h2>Vendas de {{ nome_mes(mes) }}</h2>
   {% if vendas %}
     <div class="tabela">
-      <table>
+      <table class="responsiva">
         <thead>
           <tr><th>Data</th><th>Venda</th><th class="num">Qtd.</th><th class="num">Preço un.</th>
               <th class="num">Total</th><th class="num">Lucro</th><th></th></tr>
@@ -56,15 +55,15 @@
         <tbody>
           {% for v in vendas %}
             <tr>
-              <td>{{ v.data|data_curta }}</td>
-              <td>
+              <td data-rotulo="Data">{{ v.data|data_curta }}</td>
+              <td class="titulo">
                 {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}
                 {% if v.notas %}<div class="muted pequeno">{{ v.notas }}</div>{% endif %}
               </td>
-              <td class="num">{{ v.quantidade }}</td>
-              <td class="num">{{ v.preco_unit|eur }}</td>
-              <td class="num">{{ (v.quantidade * v.preco_unit)|eur }}</td>
-              <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}">{{ v.lucro|eur }}</td>
+              <td class="num" data-rotulo="Quantidade">{{ v.quantidade }}</td>
+              <td class="num" data-rotulo="Preço un.">{{ v.preco_unit|eur }}</td>
+              <td class="num" data-rotulo="Total">{{ (v.quantidade * v.preco_unit)|eur }}</td>
+              <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}" data-rotulo="Lucro">{{ v.lucro|eur }}</td>
               <td>
                 <div class="acoes">
                   <form method="post" action="{{ url_for('.apagar_venda', id=v.id) }}" data-confirmar="Apagar esta venda?">

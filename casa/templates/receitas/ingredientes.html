@@ -25,7 +25,7 @@
 
 <section class="cartao">
   <div class="tabela">
-    <table>
+    <table class="responsiva">
       <thead>
         <tr><th>Ingrediente</th><th>Unid.</th><th class="num">Embalagem</th><th class="num">Preço</th>
             <th class="num">Referência</th><th class="num">Atualizado</th><th></th></tr>
@@ -34,18 +34,18 @@
         {% for i in ingredientes %}
           {% set f = 'ing-' ~ i.id %}
           <tr>
-            <td><input name="nome" form="{{ f }}" value="{{ i.nome }}" required></td>
-            <td>
-              <select name="unidade" form="{{ f }}" style="width: 4.5rem">
+            <td data-rotulo="Nome"><input name="nome" form="{{ f }}" value="{{ i.nome }}" required aria-label="Nome" style="min-width: 8rem"></td>
+            <td data-rotulo="Unidade">
+              <select name="unidade" form="{{ f }}" style="width: 4.5rem" aria-label="Unidade">
                 {% for u in unidades %}<option {{ 'selected' if u == i.unidade }}>{{ u }}</option>{% endfor %}
               </select>
             </td>
-            <td><input type="number" name="qtd_embalagem" form="{{ f }}" value="{{ i.qtd_embalagem }}" step="any" min="0.001" style="width: 6rem; margin-left: auto; display: block"></td>
-            <td><input type="number" name="preco_embalagem" form="{{ f }}" value="{{ i.preco_embalagem }}" step="0.01" min="0" style="width: 6rem; margin-left: auto; display: block"></td>
-            <td class="num muted">
+            <td data-rotulo="Embalagem"><input type="number" name="qtd_embalagem" form="{{ f }}" value="{{ '%g'|format(i.qtd_embalagem) }}" step="any" min="0.001" style="width: 6rem; margin-left: auto; display: block" aria-label="Quantidade da embalagem"></td>
+            <td data-rotulo="Preço (€)"><input type="number" name="preco_embalagem" form="{{ f }}" value="{{ '%g'|format(i.preco_embalagem) }}" step="0.01" min="0" style="width: 6rem; margin-left: auto; display: block" aria-label="Preço da embalagem"></td>
+            <td class="num muted" data-rotulo="Referência">
               {{ (i.preco_unit * (1 if i.unidade == 'un' else 1000))|eur }}{{ unidades[i.unidade][1:] }}
             </td>
-            <td class="num muted pequeno">{{ i.atualizado_em|data_curta }}</td>
+            <td class="num muted pequeno" data-rotulo="Atualizado">{{ i.atualizado_em|data_curta }}</td>
             <td>
               <div class="acoes">
                 <form method="post" id="{{ f }}">

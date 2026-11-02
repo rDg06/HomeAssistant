@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import escolher_mes %}
 {% block titulo %}Gastos{% endblock %}
 {% block conteudo %}
 {% include "gastos/_subnav.html" %}
@@ -11,9 +12,7 @@
   {% endif %}
   <h1>{{ nome_mes(mes) }}</h1>
   <a class="botao secundario pequeno" href="{{ url_for('.lista', mes=seguinte) }}" title="Mês seguinte">→</a>
-  <form method="get">
-    <input type="month" name="mes" value="{{ mes }}" min="{{ primeiro_mes }}" onchange="this.form.submit()" aria-label="Escolher mês">
-  </form>
+  {{ escolher_mes(mes, primeiro_mes) }}
 </div>
 
 <div class="numeros">
@@ -58,12 +57,17 @@
     {% include "gastos/_campos.html" %}
     <button type="submit">Adicionar</button>
   </form>
-  {% if fixos_anterior %}
-    <form method="post" action="{{ url_for('.copiar_fixos') }}" style="margin-top: .75rem">
-      <input type="hidden" name="mes" value="{{ mes }}">
-      <button class="secundario pequeno" title="Gastos fixos e rendimentos de todos os meses">↻ Copiar {{ fixos_anterior }} registo(s) fixo(s) de {{ nome_mes(anterior) }}</button>
-    </form>
-  {% endif %}
+  <div class="acoes" style="justify-content: flex-start; margin-top: .75rem">
+    {% if por_lancar %}
+      <form method="post" action="{{ url_for('.lancar_fixas') }}">
+        <input type="hidden" name="mes" value="{{ mes }}">
+        <button class="secundario pequeno" title="{{ por_lancar|map(attribute='descricao')|join(', ') }}">
+          ↻ Lançar {{ por_lancar|length }} despesa(s) fixa(s) · {{ total_por_lancar|eur }}
+        </button>
+      </form>
+    {% endif %}
+    <a class="pequeno" href="{{ url_for('.fixas') }}">Gerir despesas fixas</a>
+  </div>
 </section>
 
 <div class="grelha">
@@ -155,21 +159,21 @@
   <h2>Gastos de {{ nome_mes(mes) }}</h2>
   {% if gastos %}
     <div class="tabela">
-      <table>
+      <table class="responsiva">
         <thead>
           <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th class="num">Valor</th><th></th></tr>
         </thead>
         <tbody>
           {% for gasto in gastos %}
             <tr>
-              <td>{{ gasto.data|data_curta }}</td>
-              <td>
+              <td data-rotulo="Data">{{ gasto.data|data_curta }}</td>
+              <td class="titulo">
                 {{ gasto.descricao }}
                 {% if gasto.fixo %}<span class="etiqueta">fixo</span>{% endif %}
                 {% if gasto.notas %}<div class="muted pequeno">{{ gasto.notas }}</div>{% endif %}
               </td>
-              <td>{{ gasto.categoria or '—' }}</td>
-              <td class="num">{{ gasto.valor|eur }}</td>
+              <td data-rotulo="Categoria">{{ gasto.categoria or '—' }}</td>
+              <td class="num" data-rotulo="Valor">{{ gasto.valor|eur }}</td>
               <td>
                 <div class="acoes">
                   <a class="botao secundario pequeno" href="{{ url_for('.editar', id=gasto.id) }}">Editar</a>

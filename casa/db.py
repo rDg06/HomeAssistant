@@ -36,6 +36,32 @@ MIGRACOES = {
             valor TEXT NOT NULL
         );
     """,
+    5: """
+        -- Tabela de despesas fixas (Netflix, ginásio...), lançadas em cada mês com um botão.
+        CREATE TABLE despesas_fixas (
+            id INTEGER PRIMARY KEY,
+            descricao TEXT NOT NULL,
+            categoria_id INTEGER REFERENCES categorias(id) ON DELETE SET NULL,
+            valor REAL NOT NULL,
+            dia INTEGER NOT NULL DEFAULT 1,
+            ativa INTEGER NOT NULL DEFAULT 1,
+            notas TEXT NOT NULL DEFAULT ''
+        );
+        -- Liga cada gasto lançado à despesa fixa de onde veio (para não a lançar duas vezes no mesmo mês).
+        ALTER TABLE gastos ADD COLUMN fixa_id INTEGER REFERENCES despesas_fixas(id) ON DELETE SET NULL;
+
+        -- Passa os gastos que já estavam marcados como fixos para a tabela (com o valor mais recente).
+        INSERT INTO despesas_fixas (descricao, categoria_id, valor, dia, notas)
+        SELECT g.descricao, g.categoria_id, g.valor, CAST(substr(g.data, 9, 2) AS INTEGER), g.notas
+        FROM gastos g
+        WHERE g.fixo = 1 AND g.id = (
+            SELECT g2.id FROM gastos g2 WHERE g2.fixo = 1 AND lower(g2.descricao) = lower(g.descricao)
+            ORDER BY g2.data DESC, g2.id DESC LIMIT 1
+        );
+        UPDATE gastos SET fixa_id = (
+            SELECT f.id FROM despesas_fixas f WHERE lower(f.descricao) = lower(gastos.descricao)
+        ) WHERE fixo = 1;
+    """,
 }
 
 

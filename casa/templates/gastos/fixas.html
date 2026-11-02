@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import ajuda %}
+{% block titulo %}Despesas fixas{% endblock %}
+
+{% macro escolher_categoria(categorias, escolhida=none, form=none) %}
+  <select name="categoria_id" {% if form %}form="{{ form }}"{% endif %} aria-label="Categoria">
+    <option value="">— sem categoria —</option>
+    {% for c in categorias %}
+      <option value="{{ c.id }}" {{ 'selected' if c.id == escolhida }}>{{ c.nome }}</option>
+    {% endfor %}
+  </select>
+{% endmacro %}
+
+{% block conteudo %}
+{% include "gastos/_subnav.html" %}
+<div class="cabecalho">
+  <h1>Despesas fixas</h1>
+  <div class="numero" style="padding: .5rem .9rem">
+    <div class="rotulo">Total por mês</div>
+    <div class="valor">{{ total|eur }}</div>
+  </div>
+</div>
+<p class="muted" style="margin-top: -.5rem">
+  Subscrições e contas que pagas todos os meses. Em cada mês, carrega em "Lançar despesas fixas" na página do mês
+  para as juntar aos gastos.
+</p>
+
+<section class="cartao">
+  <h2>Nova despesa fixa</h2>
+  <form method="post" class="campos">
+    <label>Nome<input name="descricao" required placeholder="ex.: Netflix"></label>
+    <label>Categoria{{ escolher_categoria(categorias) }}</label>
+    <label>Valor (€)<input type="number" name="valor" step="0.01" min="0.01" inputmode="decimal" required></label>
+    <label><span>Dia do mês {{ ajuda('Dia em que é cobrada. Num mês mais curto (ex.: dia 31 em Fevereiro) fica no último dia.') }}</span>
+      <input type="number" name="dia" min="1" max="31" step="1" value="1" required>
+    </label>
+    <button type="submit">Adicionar</button>
+  </form>
+</section>
+
+<section class="cartao">
+  {% if fixas %}
+    <div class="tabela">
+      <table class="responsiva">
+        <thead>
+          <tr><th>Nome</th><th>Categoria</th><th class="num">Valor (€)</th><th class="num">Dia</th><th>Ativa</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for f in fixas %}
+            {% set form = 'fixa-' ~ f.id %}
+            <tr class="{{ '' if f.ativa else 'inativa' }}">
+              <td data-rotulo="Nome"><input name="descricao" form="{{ form }}" value="{{ f.descricao }}" required aria-label="Nome" style="min-width: 9rem"></td>
+              <td data-rotulo="Categoria">{{ escolher_categoria(categorias, f.categoria_id, form) }}</td>
+              <td data-rotulo="Valor (€)"><input type="number" name="valor" form="{{ form }}" value="{{ '%.2f'|format(f.valor) }}" step="0.01" min="0.01" required aria-label="Valor" style="width: 6rem; margin-left: auto; display: block"></td>
+              <td data-rotulo="Dia"><input type="number" name="dia" form="{{ form }}" value="{{ f.dia }}" min="1" max="31" step="1" required aria-label="Dia do mês" style="width: 4.5rem; margin-left: auto; display: block"></td>
+              <td data-rotulo="Ativa">
+                <label class="check" style="padding: 0" title="Desmarca para deixar de a lançar (ex.: cancelaste o ginásio) sem a apagar">
+                  <input type="checkbox" name="ativa" value="1" form="{{ form }}" {{ 'checked' if f.ativa }}>
+                  <span class="muted pequeno">{{ 'sim' if f.ativa else 'não' }}</span>
+                </label>
+              </td>
+              <td>
+                <div class="acoes">
+                  <form method="post" id="{{ form }}">
+                    <input type="hidden" name="id" value="{{ f.id }}">
+                    <button class="secundario pequeno">Guardar</button>
+                  </form>
+                  <form method="post" action="{{ url_for('.apagar_fixa', id=f.id) }}" data-confirmar="Apagar esta despesa fixa?">
+                    <button class="perigo pequeno">Apagar</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Ainda não tens despesas fixas. Adiciona a primeira acima (Netflix, ginásio, renda…).</p>
+  {% endif %}
+</section>
+{% endblock %}

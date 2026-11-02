@@ -6,7 +6,7 @@ from datetime import date
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
 from .db import get_db
-from .util import data_valida, deslocar_mes, existe, hoje_mes, mes_valido, parse_num
+from .util import data_valida, deslocar_mes, existe, hoje_mes, mes_valido, nome_mes, parse_num
 
 bp = Blueprint("gastos", __name__, url_prefix="/gastos")
 
@@ -56,6 +56,17 @@ def _janela_rendimentos(db, mes):
     return {"blocos": blocos, "do_mes_anterior": do_mes_anterior}
 
 
+def _fixas_por_lancar(db, mes):
+    """Despesas fixas ativas que ainda não têm gasto lançado neste mês."""
+    return db.execute(
+        """SELECT * FROM despesas_fixas f
+           WHERE f.ativa = 1 AND NOT EXISTS (
+               SELECT 1 FROM gastos g WHERE g.fixa_id = f.id AND substr(g.data, 1, 7) = ?
+           ) ORDER BY f.dia, f.descricao""",
+        (mes,),
+    ).fetchall()
+
+
 def _categorias(db):
     return db.execute("SELECT * FROM categorias ORDER BY nome").fetchall()
 
@@ -67,7 +78,6 @@ def _ler_form():
         "descricao": f.get("descricao", "").strip(),
         "categoria_id": existe(get_db(), "categorias", f.get("categoria_id", type=int)),
         "valor": parse_num(f.get("valor"), None),
-        "fixo": 1 if f.get("fixo") else 0,
         "notas": f.get("notas", "").strip(),
     }
     erros = []
@@ -141,10 +151,7 @@ def lista():
     historico = [
         (m, total_mes(db, m)) for m in (deslocar_mes(mes, -i) for i in range(5, -1, -1)) if m >= PRIMEIRO_MES
     ]
-    fixos_anterior = anterior and sum(
-        db.execute(f"SELECT COUNT(*) FROM {t} WHERE fixo = 1 AND substr(data, 1, 7) = ?", (anterior,)).fetchone()[0]
-        for t in ("gastos", "rendimentos")
-    )
+    por_lancar = _fixas_por_lancar(db, mes)
 
     return render_template(
         "gastos/lista.html",
@@ -161,7 +168,8 @@ def lista():
         primeiro_mes=PRIMEIRO_MES,
         historico=historico,
         max_hist=max(t for _, t in historico),
-        fixos_anterior=fixos_anterior,
+        por_lancar=por_lancar,
+        total_por_lancar=sum(f["valor"] for f in por_lancar),
         categorias=_categorias(db),
         data_padrao=date.today().isoformat() if mes == hoje_mes() else f"{mes}-01",
     )
@@ -176,8 +184,8 @@ def novo():
         return redirect(url_for(".lista", mes=request.form.get("mes")))
     db = get_db()
     db.execute(
-        """INSERT INTO gastos (data, descricao, categoria_id, valor, fixo, notas)
-           VALUES (:data, :descricao, :categoria_id, :valor, :fixo, :notas)""",
+        """INSERT INTO gastos (data, descricao, categoria_id, valor, notas)
+           VALUES (:data, :descricao, :categoria_id, :valor, :notas)""",
         dados,
     )
     db.commit()
@@ -197,7 +205,7 @@ def editar(id):
             dados["id"] = id
             db.execute(
                 """UPDATE gastos SET data = :data, descricao = :descricao, categoria_id = :categoria_id,
-                   valor = :valor, fixo = :fixo, notas = :notas WHERE id = :id""",
+                   valor = :valor, notas = :notas WHERE id = :id""",
                 dados,
             )
             db.commit()
@@ -220,46 +228,87 @@ def apagar(id):
     return redirect(url_for(".lista", mes=gasto["data"][:7] if gasto else None))
 
 
-@bp.post("/copiar-fixos")
-def copiar_fixos():
+@bp.post("/fixas/lancar")
+def lancar_fixas():
+    """Lança no mês as despesas fixas ativas que ainda lá não estão."""
     mes = request.form.get("mes", "")
-    if not mes_valido(mes) or mes <= PRIMEIRO_MES:
+    if not mes_valido(mes) or mes < PRIMEIRO_MES:
         abort(400)
     db = get_db()
     ano, m = map(int, mes.split("-"))
     ultimo_dia = calendar.monthrange(ano, m)[1]
-    anterior = deslocar_mes(mes, -1)
-
-    def copiar(tabela, chave, colunas):
-        """Copia os registos fixos do mês anterior que ainda não existam neste mês (pela `chave`)."""
-        lista_chaves = ", ".join(chave)
-        ja_existem = {
-            tuple(str(v).lower() for v in r)
-            for r in db.execute(f"SELECT {lista_chaves} FROM {tabela} WHERE substr(data, 1, 7) = ?", (mes,))
-        }
-        fixos = db.execute(
-            f"SELECT * FROM {tabela} WHERE fixo = 1 AND substr(data, 1, 7) = ?", (anterior,)
-        ).fetchall()
-        n = 0
-        for r in fixos:
-            if tuple(str(r[c]).lower() for c in chave) in ja_existem:
-                continue
-            dia = min(int(r["data"][8:10]), ultimo_dia)
-            db.execute(
-                f"INSERT INTO {tabela} (data, fixo, {', '.join(colunas)}) VALUES (?, 1, {', '.join('?' * len(colunas))})",
-                (f"{mes}-{dia:02d}", *(r[c] for c in colunas)),
-            )
-            n += 1
-        return n
-
-    copiados = copiar("gastos", ["descricao"], ["descricao", "categoria_id", "valor", "notas"])
-    copiados += copiar("rendimentos", ["pessoa", "tipo"], ["pessoa", "tipo", "valor", "notas"])
+    por_lancar = _fixas_por_lancar(db, mes)
+    for fixa in por_lancar:
+        dia = min(max(fixa["dia"], 1), ultimo_dia)  # dia 31 em Fevereiro fica no último dia
+        db.execute(
+            """INSERT INTO gastos (data, descricao, categoria_id, valor, fixo, fixa_id, notas)
+               VALUES (?, ?, ?, ?, 1, ?, ?)""",
+            (f"{mes}-{dia:02d}", fixa["descricao"], fixa["categoria_id"], fixa["valor"], fixa["id"], fixa["notas"]),
+        )
     db.commit()
-    if copiados:
-        flash(f"Copiados {copiados} registo(s) fixo(s). Confirma os valores, podem ter mudado.", "ok")
+    if por_lancar:
+        flash(f"Lançadas {len(por_lancar)} despesa(s) fixa(s) em {nome_mes(mes)}.", "ok")
     else:
-        flash("Os registos fixos do mês anterior já estavam neste mês.", "ok")
+        flash("As despesas fixas já estavam todas lançadas neste mês.", "ok")
     return redirect(url_for(".lista", mes=mes))
+
+
+@bp.route("/fixas", methods=["GET", "POST"])
+def fixas():
+    db = get_db()
+    if request.method == "POST":
+        f = request.form
+        dados = {
+            "descricao": f.get("descricao", "").strip(),
+            "categoria_id": existe(db, "categorias", f.get("categoria_id", type=int)),
+            "valor": parse_num(f.get("valor"), None),
+            "dia": min(max(f.get("dia", type=int) or 1, 1), 31),
+            "ativa": 1 if f.get("ativa") else 0,
+            "id": f.get("id", type=int),
+        }
+        if not dados["descricao"] or dados["valor"] is None or dados["valor"] <= 0:
+            flash("Indica o nome e um valor maior que zero.", "erro")
+        elif dados["id"]:
+            alterados = db.execute(
+                """UPDATE despesas_fixas SET descricao = :descricao, categoria_id = :categoria_id, valor = :valor,
+                   dia = :dia, ativa = :ativa WHERE id = :id""",
+                dados,
+            ).rowcount
+            db.commit()
+            if alterados:
+                flash(f"\"{dados['descricao']}\" atualizada. Vale para os meses que ainda não foram lançados.", "ok")
+            else:
+                flash("Essa despesa fixa já não existe (foi apagada entretanto).", "erro")
+        else:
+            db.execute(
+                """INSERT INTO despesas_fixas (descricao, categoria_id, valor, dia, ativa)
+                   VALUES (:descricao, :categoria_id, :valor, :dia, 1)""",
+                dados,
+            )
+            db.commit()
+            flash(f"\"{dados['descricao']}\" adicionada às despesas fixas.", "ok")
+        return redirect(url_for(".fixas"))
+
+    lista_fixas = db.execute(
+        """SELECT f.*, c.nome AS categoria FROM despesas_fixas f
+           LEFT JOIN categorias c ON c.id = f.categoria_id
+           ORDER BY f.ativa DESC, f.dia, f.descricao"""
+    ).fetchall()
+    return render_template(
+        "gastos/fixas.html",
+        fixas=lista_fixas,
+        total=sum(f["valor"] for f in lista_fixas if f["ativa"]),
+        categorias=_categorias(db),
+    )
+
+
+@bp.post("/fixas/<int:id>/apagar")
+def apagar_fixa(id):
+    db = get_db()
+    db.execute("DELETE FROM despesas_fixas WHERE id = ?", (id,))
+    db.commit()
+    flash("Despesa fixa apagada. Os gastos já lançados nos meses anteriores mantêm-se.", "ok")
+    return redirect(url_for(".fixas"))
 
 
 @bp.post("/rendimentos/mes")
@@ -305,13 +354,24 @@ def categorias():
     db = get_db()
     if request.method == "POST":
         nome = request.form.get("nome", "").strip()
-        if nome:
-            try:
+        categoria_id = request.form.get("id", type=int)
+        if not nome:
+            flash("A categoria precisa de um nome.", "erro")
+            return redirect(url_for(".categorias"))
+        try:
+            if categoria_id:
+                # Os gastos guardam o id da categoria, por isso o nome novo aparece logo em todos os meses.
+                alterados = db.execute("UPDATE categorias SET nome = ? WHERE id = ?", (nome, categoria_id)).rowcount
+                if alterados:
+                    flash(f"Categoria renomeada para \"{nome}\".", "ok")
+                else:
+                    flash("Essa categoria já não existe (foi apagada entretanto).", "erro")
+            else:
                 db.execute("INSERT INTO categorias (nome) VALUES (?)", (nome,))
-                db.commit()
                 flash(f"Categoria \"{nome}\" criada.", "ok")
-            except sqlite3.IntegrityError:
-                flash("Essa categoria já existe.", "erro")
+            db.commit()
+        except sqlite3.IntegrityError:
+            flash(f"Já existe uma categoria chamada \"{nome}\".", "erro")
         return redirect(url_for(".categorias"))
     lista_categorias = db.execute(
         """SELECT c.*, COUNT(g.id) AS n, COALESCE(SUM(g.valor), 0) AS total FROM categorias c

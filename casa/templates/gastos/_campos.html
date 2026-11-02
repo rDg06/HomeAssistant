@@ -15,9 +15,6 @@
 <label>Valor (€)
   <input type="number" name="valor" step="0.01" min="0.01" inputmode="decimal" value="{{ gasto.valor if gasto }}" required>
 </label>
-<label class="check">
-  <input type="checkbox" name="fixo" value="1" {{ 'checked' if gasto and gasto.fixo }}> Gasto fixo mensal
-</label>
-<label class="largo">Notas
+<label>Notas
   <input name="notas" value="{{ gasto.notas if gasto }}" placeholder="opcional">
 </label>

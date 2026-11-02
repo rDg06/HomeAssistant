@@ -34,15 +34,15 @@
   </datalist>
 
   <div class="tabela" style="margin-top: 1rem">
-    <table>
+    <table class="responsiva">
       <thead><tr><th>Nome</th><th>Material</th><th class="num">€/kg</th><th class="num">Peças</th><th></th></tr></thead>
       <tbody>
         {% for f in filamentos %}
           <tr>
-            <td><input name="nome" form="fil-{{ f.id }}" value="{{ f.nome }}" required aria-label="Nome"></td>
-            <td><input name="material" form="fil-{{ f.id }}" value="{{ f.material }}" list="materiais" style="max-width: 7rem" aria-label="Material"></td>
-            <td><input type="number" name="preco_kg" form="fil-{{ f.id }}" value="{{ '%g'|format(f.preco_kg) }}" step="any" min="0" style="max-width: 6rem; margin-left: auto; display: block" aria-label="Preço por kg"></td>
-            <td class="num">{{ f.n_pecas }}</td>
+            <td data-rotulo="Nome"><input name="nome" form="fil-{{ f.id }}" value="{{ f.nome }}" required aria-label="Nome"></td>
+            <td data-rotulo="Material"><input name="material" form="fil-{{ f.id }}" value="{{ f.material }}" list="materiais" style="max-width: 7rem" aria-label="Material"></td>
+            <td data-rotulo="€/kg"><input type="number" name="preco_kg" form="fil-{{ f.id }}" value="{{ '%g'|format(f.preco_kg) }}" step="any" min="0" style="max-width: 6rem; margin-left: auto; display: block" aria-label="Preço por kg"></td>
+            <td class="num" data-rotulo="Peças">{{ f.n_pecas }}</td>
             <td>
               <div class="acoes">
                 <form method="post" action="{{ url_for('.filamentos') }}" id="fil-{{ f.id }}">

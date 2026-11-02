@@ -1,3 +1,22 @@
+{# Seletor de mês em calendário: um botão que abre um painel com o ano e os 12 meses (ver base.html). #}
+{% macro escolher_mes(atual, minimo='') -%}
+  <div class="seletor-mes" data-atual="{{ atual }}" data-minimo="{{ minimo }}">
+    <button type="button" class="botao secundario seletor-mes-botao" aria-haspopup="true" aria-expanded="false">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      {{ nome_mes(atual) }}
+    </button>
+    <div class="seletor-mes-painel" role="dialog" aria-label="Escolher mês" hidden>
+      <div class="seletor-mes-ano">
+        <button type="button" class="secundario pequeno" data-ano="-1" aria-label="Ano anterior">‹</button>
+        <strong></strong>
+        <button type="button" class="secundario pequeno" data-ano="1" aria-label="Ano seguinte">›</button>
+      </div>
+      <div class="seletor-mes-grelha"></div>
+    </div>
+  </div>
+{%- endmacro %}
+
 {# Ícone "?" com uma explicação que aparece ao passar o rato ou ao tocar. #}
 {% macro ajuda(texto) -%}
   <span class="ajuda" tabindex="0" role="button" aria-label="Ajuda: {{ texto }}" data-ajuda="{{ texto }}"

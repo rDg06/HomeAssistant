@@ -68,6 +68,56 @@
       if (e.defaultPrevented || !botao) return;
       setTimeout(() => { botao.disabled = true; botao.dataset.enviado = '1'; });
     });
+    // Seletor de mês (macro escolher_mes): painel com o ano e os 12 meses; escolher um muda a página.
+    const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    for (const seletor of document.querySelectorAll('.seletor-mes')) {
+      const botao = seletor.querySelector('.seletor-mes-botao');
+      const painel = seletor.querySelector('.seletor-mes-painel');
+      const grelha = seletor.querySelector('.seletor-mes-grelha');
+      const { atual, minimo } = seletor.dataset;
+      let ano = Number(atual.slice(0, 4));
+
+      function desenhar() {
+        seletor.querySelector('.seletor-mes-ano strong').textContent = ano;
+        seletor.querySelector('[data-ano="-1"]').disabled = !!minimo && ano <= Number(minimo.slice(0, 4));
+        grelha.replaceChildren(...MESES.map((nome, i) => {
+          const mes = `${ano}-${String(i + 1).padStart(2, '0')}`;
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = nome;
+          b.className = mes === atual ? '' : 'secundario';
+          b.disabled = !!minimo && mes < minimo;
+          b.addEventListener('click', () => {
+            const url = new URL(location.href);
+            url.searchParams.set('mes', mes);
+            location.href = url;
+          });
+          return b;
+        }));
+      }
+
+      function abrir(aberto) {
+        painel.hidden = !aberto;
+        botao.setAttribute('aria-expanded', aberto);
+        if (aberto) { ano = Number(atual.slice(0, 4)); desenhar(); grelha.querySelector('button:not(.secundario)')?.focus(); }
+      }
+
+      botao.addEventListener('click', () => abrir(painel.hidden));
+      for (const b of seletor.querySelectorAll('[data-ano]')) {
+        b.addEventListener('click', () => { ano += Number(b.dataset.ano); desenhar(); });
+      }
+      document.addEventListener('click', e => { if (!seletor.contains(e.target)) abrir(false); });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !painel.hidden) { abrir(false); botao.focus(); }
+      });
+    }
+
+    // Nos campos de data, clicar em qualquer ponto abre o calendário (e não só no ícone).
+    document.addEventListener('click', e => {
+      const campo = e.target.closest('input[type=date]');
+      if (campo && campo.showPicker) { try { campo.showPicker(); } catch {} }
+    });
+
     // Ao voltar atrás no browser a página pode vir da cache com o botão ainda desativado.
     window.addEventListener('pageshow', () => {
       for (const b of document.querySelectorAll('[data-enviado]')) { b.disabled = false; delete b.dataset.enviado; }

@@ -29,7 +29,7 @@
   <h2>Peças guardadas</h2>
   {% if pecas %}
     <div class="tabela">
-      <table>
+      <table class="responsiva">
         <thead>
           <tr>
             <th>Peça</th><th>Filamento</th><th class="num">Peso</th><th class="num">Tempo</th>
@@ -39,13 +39,13 @@
         <tbody>
           {% for p in pecas %}
             <tr>
-              <td>{{ p.nome }}{% if p.notas %}<div class="muted pequeno">{{ p.notas }}</div>{% endif %}</td>
-              <td>{{ p.filamento or '—' }}</td>
-              <td class="num">{{ p.gramas|num(1) }} g</td>
-              <td class="num">{{ p.horas|duracao }}</td>
-              <td class="num">{{ p.custo.total|eur }}</td>
-              <td class="num">{{ p.preco|eur }}{% if p.preco_venda is none %}<div class="muted pequeno">sugerido</div>{% endif %}</td>
-              <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}">{{ p.lucro|eur }}</td>
+              <td class="titulo">{{ p.nome }}{% if p.notas %}<div class="muted pequeno">{{ p.notas }}</div>{% endif %}</td>
+              <td data-rotulo="Filamento">{{ p.filamento or '—' }}</td>
+              <td class="num" data-rotulo="Peso">{{ p.gramas|num(1) }} g</td>
+              <td class="num" data-rotulo="Tempo">{{ p.horas|duracao }}</td>
+              <td class="num" data-rotulo="Custo">{{ p.custo.total|eur }}</td>
+              <td class="num" data-rotulo="Preço"><span>{{ p.preco|eur }}{% if p.preco_venda is none %} <span class="muted pequeno">(sugerido)</span>{% endif %}</span></td>
+              <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}" data-rotulo="Lucro">{{ p.lucro|eur }}</td>
               <td>
                 <div class="acoes">
                   <a class="botao pequeno" href="{{ url_for('.vendas', peca=p.id) }}">Vender</a>

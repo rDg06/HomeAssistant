@@ -13,16 +13,23 @@
 
 <section class="cartao">
   <div class="tabela">
-    <table>
+    <table class="responsiva">
       <thead><tr><th>Categoria</th><th class="num">Registos</th><th class="num">Total (sempre)</th><th></th></tr></thead>
       <tbody>
         {% for c in categorias %}
+          {% set form = 'cat-' ~ c.id %}
           <tr>
-            <td>{{ c.nome }}</td>
-            <td class="num">{{ c.n }}</td>
-            <td class="num">{{ c.total|eur }}</td>
+            <td data-rotulo="Nome">
+              <input name="nome" form="{{ form }}" value="{{ c.nome }}" required aria-label="Nome da categoria" style="min-width: 12rem">
+            </td>
+            <td class="num" data-rotulo="Registos">{{ c.n }}</td>
+            <td class="num" data-rotulo="Total (sempre)">{{ c.total|eur }}</td>
             <td>
               <div class="acoes">
+                <form method="post" id="{{ form }}">
+                  <input type="hidden" name="id" value="{{ c.id }}">
+                  <button class="secundario pequeno">Guardar</button>
+                </form>
                 <form method="post" action="{{ url_for('.apagar_categoria', id=c.id) }}"
                       data-confirmar="Apagar a categoria? Os {{ c.n }} gasto(s) ficam sem categoria.">
                   <button class="perigo pequeno">Apagar</button>
