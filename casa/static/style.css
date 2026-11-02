@@ -278,6 +278,11 @@ tr.inativa td { opacity: .55; }
   .link-celula input, .preco-celula input { width: 100% !important; }
   .link-celula span { max-width: 100%; white-space: normal; }
 }
+/* Tabela com o conteúdo das colunas à esquerda e os botões à direita (só no computador; no telemóvel são cartões) */
+@media (min-width: 641px) {
+  table.esquerda th, table.esquerda td { text-align: left; }
+  table.esquerda .preco-celula, table.esquerda .link-celula { align-items: flex-start; }
+}
 .link, button.link {
   background: none;
   border: 0;

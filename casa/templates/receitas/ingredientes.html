@@ -39,7 +39,7 @@
 
 <section class="cartao">
   <div class="tabela">
-    <table class="responsiva">
+    <table class="responsiva esquerda">
       <thead>
         <tr><th>Ingrediente</th><th>Unid.</th><th class="num">Embalagem</th><th class="num">Preço (€)</th>
             <th class="num">Referência</th><th>Continente</th><th></th></tr>
@@ -56,7 +56,7 @@
                 {% for u in unidades %}<option {{ 'selected' if u == i.unidade }}>{{ u }}</option>{% endfor %}
               </select>
             </td>
-            <td data-rotulo="Embalagem"><input type="number" name="qtd_embalagem" form="{{ f }}" value="{{ '%g'|format(i.qtd_embalagem) }}" step="any" min="0.001" style="width: 6rem; margin-left: auto; display: block" aria-label="Quantidade da embalagem"></td>
+            <td data-rotulo="Embalagem"><input type="number" name="qtd_embalagem" form="{{ f }}" value="{{ '%g'|format(i.qtd_embalagem) }}" step="any" min="0.001" style="width: 6rem" aria-label="Quantidade da embalagem"></td>
             <td data-rotulo="Preço (€)">
               <div class="preco-celula">
                 <input type="number" name="preco_embalagem" form="{{ f }}" value="{{ '%g'|format(i.preco_embalagem) }}" step="0.01" min="0" style="width: 6rem" aria-label="Preço da embalagem">
