@@ -14,10 +14,10 @@
     <div class="valor-grande">{{ vendas.lucro|eur }}</div>
     <p class="muted">lucro em {{ nome_mes(mes) }} · {{ vendas.faturado|eur }} faturado</p>
   </a>
-  <a class="cartao modulo" href="{{ url_for('receitas.lista') }}">
-    <h2>🎂 Receitas</h2>
-    <div class="valor-grande">{{ n_receitas }}</div>
-    <p class="muted">receitas guardadas · {{ n_ingredientes }} ingredientes</p>
+  <a class="cartao modulo" href="{{ url_for('receitas.orcamentos') }}">
+    <h2>🎂 Bolos</h2>
+    <div class="valor-grande">{{ bolos.total|eur }}</div>
+    <p class="muted">{{ bolos.n }} {{ 'bolo' if bolos.n == 1 else 'bolos' }} em {{ nome_mes(mes) }} · lucro {{ bolos.lucro|eur }}</p>
   </a>
 </div>
 {% endblock %}

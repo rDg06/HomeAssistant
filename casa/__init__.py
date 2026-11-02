@@ -52,8 +52,12 @@ def create_app(config=None):
             gastos_mes=gastos.total_mes(con, mes_gastos),
             rendimentos_mes=gastos.total_mes(con, mes_gastos, "rendimentos"),
             vendas=impressao.resumo_vendas(con, mes),
-            n_receitas=con.execute("SELECT COUNT(*) FROM receitas").fetchone()[0],
-            n_ingredientes=con.execute("SELECT COUNT(*) FROM ingredientes").fetchone()[0],
+            # Bolos do mês: orçamentos com entrega neste mês (ou feitos neste mês, se não tiverem data).
+            bolos=con.execute(
+                """SELECT COUNT(*) AS n, COALESCE(SUM(preco), 0) AS total, COALESCE(SUM(preco - custo), 0) AS lucro
+                   FROM orcamentos_bolo WHERE substr(COALESCE(data_entrega, criado_em), 1, 7) = ?""",
+                (mes,),
+            ).fetchone(),
         )
 
     return app
