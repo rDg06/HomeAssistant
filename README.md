@@ -6,7 +6,7 @@ Pequena app para as coisas cá de casa:
 - **Impressão 3D**: calculadora de custo (filamento, eletricidade, desgaste, falhas, trabalho), peças guardadas e registo de vendas com lucro.
 - **Receitas**: ingredientes com preço de embalagem, custo total e por porção de cada receita (bases, recheios, coberturas), com multiplicador de quantidades.
 
-Feita em Python + Flask. Os dados ficam em `instance/casa.db` (SQLite). Para fazer uma cópia de segurança basta copiar esse ficheiro.
+Feita em Python + Flask. Os dados ficam em `instance/casa.db` (SQLite).
 
 ## Como arrancar
 
@@ -40,3 +40,23 @@ Se te esqueceres dela, para a app e corre:
 ```
 
 Na próxima visita a app pede uma palavra-passe nova. Os dados não são apagados.
+
+## Cópias de segurança
+
+Enquanto a app está a correr, faz sozinha uma cópia da base de dados **uma vez por semana**, em
+`instance/backups` (ficheiros `casa-AAAA-MM-DD.db`). Ficam as 8 cópias mais recentes, cerca de dois meses.
+
+Para fazer uma cópia agora:
+
+```bash
+.venv\Scripts\python run.py --backup
+```
+
+Para as cópias ficarem também fora deste PC, aponta-as para uma pasta sincronizada (por exemplo o OneDrive)
+com a variável de ambiente `CASA_BACKUPS` antes de arrancar a app:
+
+```bash
+set CASA_BACKUPS=%USERPROFILE%\OneDrive\Backups Casa
+```
+
+Para recuperar uma cópia: para a app, substitui `instance/casa.db` pelo ficheiro da cópia e volta a arrancar.

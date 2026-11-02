@@ -2,6 +2,7 @@ import sys
 
 from casa import create_app
 from casa.auth import repor_passe
+from casa.backup import fazer_copia
 
 app = create_app()
 
@@ -9,6 +10,9 @@ if __name__ == "__main__":
     if "--repor-passe" in sys.argv:
         repor_passe(app)
         print("Palavra-passe apagada. Abre a app para criar uma nova.")
+        sys.exit()
+    if "--backup" in sys.argv:
+        print("Cópia de segurança feita em", fazer_copia(app))
         sys.exit()
     # Em modo debug fica só acessível neste PC; normalmente fica aberto à rede de casa.
     debug = "--debug" in sys.argv

@@ -28,10 +28,11 @@ def create_app(config=None):
 
     db.init_app(app)
 
-    from . import auth, gastos, impressao, receitas
+    from . import auth, backup, gastos, impressao, receitas
 
     app.register_blueprint(auth.bp)
     app.before_request(auth.proteger)
+    app.before_request(lambda: backup.verificar(app))  # cópia de segurança semanal
     app.register_blueprint(gastos.bp)
     app.register_blueprint(impressao.bp)
     app.register_blueprint(receitas.bp)
