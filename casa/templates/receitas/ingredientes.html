@@ -83,15 +83,15 @@
             </td>
             <td>
               <div class="acoes">
-                <form method="post" id="{{ f }}">
-                  <input type="hidden" name="id" value="{{ i.id }}">
-                  <button class="secundario pequeno">Guardar</button>
-                </form>
                 {% if i.link %}
                   <form method="post" action="{{ url_for('.atualizar_preco', id=i.id) }}">
                     <button class="secundario pequeno" title="Ir ver o preço ao Continente agora">↻</button>
                   </form>
                 {% endif %}
+                <form method="post" id="{{ f }}">
+                  <input type="hidden" name="id" value="{{ i.id }}">
+                  <button class="secundario pequeno">Guardar</button>
+                </form>
                 <form method="post" action="{{ url_for('.apagar_ingrediente', id=i.id) }}" data-confirmar="Apagar este ingrediente?">
                   <button class="perigo pequeno" {{ 'disabled title="Usado em receitas"'|safe if i.n_receitas }}>Apagar</button>
                 </form>
