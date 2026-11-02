@@ -1,12 +1,15 @@
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
+from . import precos
 from .db import get_db
-from .util import parse_num, sem_acentos
+from .util import eur, parse_num, sem_acentos
 
 bp = Blueprint("receitas", __name__, url_prefix="/receitas")
+# Ao abrir qualquer página das Receitas, os preços com mais de 30 dias são atualizados em segundo plano.
+bp.before_request(precos.verificar_em_segundo_plano)
 
 TIPOS = ["Base", "Recheio", "Cobertura", "Outro"]
 UNIDADES = {"g": "€/kg", "ml": "€/L", "un": "€/un"}
@@ -189,39 +192,113 @@ def ingredientes():
         unidade = f.get("unidade") if f.get("unidade") in UNIDADES else "g"
         qtd = parse_num(f.get("qtd_embalagem"), None)
         preco = parse_num(f.get("preco_embalagem"), None)
+        link = f.get("link", "").strip()
         ingrediente_id = f.get("id", type=int)
-        if not nome or not qtd or qtd <= 0 or preco is None or preco < 0:
-            flash("Indica o nome, a quantidade da embalagem e o preço.", "erro")
+
+        if link and not precos.link_valido(link):
+            flash("O link tem de ser de uma página de produto do Continente (https://www.continente.pt/...).", "erro")
             return redirect(url_for(".ingredientes"))
+
+        # Ingrediente novo só com o link: o nome, o preço e a embalagem vêm do Continente.
+        if not ingrediente_id and link:
+            try:
+                produto = precos.ler_produto(link)
+            except precos.ErroPreco as erro:
+                if not (nome and qtd and preco is not None):
+                    flash(f"{erro} Preenche os campos à mão.", "erro")
+                    return redirect(url_for(".ingredientes"))
+                produto = None
+            if produto:
+                nome = nome or produto["nome"]
+                preco = produto["preco"]
+                if produto["quantidade"]:
+                    qtd, unidade = produto["quantidade"], produto["unidade"]
+
+        if not nome or not qtd or qtd <= 0 or preco is None or preco < 0:
+            flash("Indica o nome, a quantidade da embalagem e o preço (ou só o link do Continente).", "erro")
+            return redirect(url_for(".ingredientes"))
+        hoje = date.today().isoformat()
         try:
             if ingrediente_id:
-                alterados = db.execute(
-                    """UPDATE ingredientes SET nome = ?, unidade = ?, qtd_embalagem = ?, preco_embalagem = ?,
-                       atualizado_em = ? WHERE id = ?""",
-                    (nome, unidade, qtd, preco, date.today().isoformat(), ingrediente_id),
-                ).rowcount
-                if alterados:
-                    flash(f"\"{nome}\" atualizado. As receitas que o usam já têm o novo custo.", "ok")
-                else:
+                anterior = db.execute("SELECT * FROM ingredientes WHERE id = ?", (ingrediente_id,)).fetchone()
+                if anterior is None:
                     flash("Esse ingrediente já não existe (foi apagado entretanto).", "erro")
-            else:
+                    return redirect(url_for(".ingredientes"))
                 db.execute(
-                    """INSERT INTO ingredientes (nome, unidade, qtd_embalagem, preco_embalagem, atualizado_em)
-                       VALUES (?, ?, ?, ?, ?)""",
-                    (nome, unidade, qtd, preco, date.today().isoformat()),
+                    """UPDATE ingredientes SET nome = ?, unidade = ?, qtd_embalagem = ?, preco_embalagem = ?,
+                       atualizado_em = ?, link = ?, aviso_preco = '' WHERE id = ?""",
+                    (nome, unidade, qtd, preco, hoje, link, ingrediente_id),
                 )
-                flash(f"\"{nome}\" adicionado.", "ok")
-            db.commit()
+                if preco != anterior["preco_embalagem"]:
+                    db.execute("INSERT INTO precos_historico (ingrediente_id, data, preco) VALUES (?, ?, ?)",
+                               (ingrediente_id, hoje, preco))
+                db.commit()
+                mensagem = f"\"{nome}\" atualizado. As receitas que o usam já têm o novo custo."
+                # Link novo: vai já ver o preço ao Continente.
+                if link and link != anterior["link"]:
+                    linha = db.execute("SELECT * FROM ingredientes WHERE id = ?", (ingrediente_id,)).fetchone()
+                    mensagem += " " + precos.atualizar_ingrediente(db, linha)[1]
+                flash(mensagem, "ok")
+            else:
+                novo_id = db.execute(
+                    """INSERT INTO ingredientes (nome, unidade, qtd_embalagem, preco_embalagem, atualizado_em, link,
+                                                verificado_em)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (nome, unidade, qtd, preco, hoje, link,
+                     datetime.now().isoformat(timespec="seconds") if link else None),
+                ).lastrowid
+                db.execute("INSERT INTO precos_historico (ingrediente_id, data, preco) VALUES (?, ?, ?)",
+                           (novo_id, hoje, preco))
+                db.commit()
+                origem = " com os dados do Continente" if link else ""
+                flash(f"\"{nome}\" adicionado{origem}: {qtd:g} {unidade} a {eur(preco)}.", "ok")
         except sqlite3.IntegrityError:
-            flash("Já existe um ingrediente com esse nome.", "erro")
+            flash(f"Já existe um ingrediente chamado \"{nome}\".", "erro")
         return redirect(url_for(".ingredientes"))
 
     lista_ing = db.execute(
-        """SELECT i.*, i.preco_embalagem / i.qtd_embalagem AS preco_unit, COUNT(DISTINCT ri.receita_id) AS n_receitas
+        """SELECT i.*, i.preco_embalagem / i.qtd_embalagem AS preco_unit, COUNT(DISTINCT ri.receita_id) AS n_receitas,
+                  (SELECT h.preco FROM precos_historico h WHERE h.ingrediente_id = i.id
+                   ORDER BY h.data DESC, h.id DESC LIMIT 1 OFFSET 1) AS preco_anterior
            FROM ingredientes i LEFT JOIN receita_ingredientes ri ON ri.ingrediente_id = i.id
            GROUP BY i.id ORDER BY i.nome"""
     ).fetchall()
-    return render_template("receitas/ingredientes.html", ingredientes=lista_ing, unidades=UNIDADES)
+    return render_template(
+        "receitas/ingredientes.html",
+        ingredientes=lista_ing,
+        unidades=UNIDADES,
+        n_com_link=sum(1 for i in lista_ing if i["link"]),
+    )
+
+
+@bp.post("/ingredientes/<int:id>/atualizar-preco")
+def atualizar_preco(id):
+    db = get_db()
+    ingrediente = db.execute("SELECT * FROM ingredientes WHERE id = ? AND link != ''", (id,)).fetchone()
+    if ingrediente is None:
+        flash("Esse ingrediente não tem link do Continente.", "erro")
+    else:
+        resultado, mensagem = precos.atualizar_ingrediente(db, ingrediente)
+        flash(mensagem, "erro" if resultado == "aviso" else "ok")
+    return redirect(url_for(".ingredientes"))
+
+
+@bp.post("/ingredientes/atualizar-precos")
+def atualizar_precos():
+    resultados = precos.atualizar_todos(get_db(), so_desatualizados=False)
+    if not resultados:
+        flash("Nenhum ingrediente tem link do Continente.", "erro")
+        return redirect(url_for(".ingredientes"))
+    # Resumo curto: as mensagens ficam no cookie da sessão, que tem tamanho limitado.
+    mudaram = [m for r, m in resultados if r == "mudou"]
+    avisos = sum(1 for r, _ in resultados if r == "aviso")
+    resumo = f"{len(resultados)} preço(s) verificado(s) no Continente: {len(mudaram)} mudaram"
+    if mudaram:
+        resumo += " (" + "; ".join(mudaram[:5]) + ("; …" if len(mudaram) > 5 else "") + ")"
+    if avisos:
+        resumo += f". {avisos} com aviso — vê a tabela."
+    flash(resumo, "ok")
+    return redirect(url_for(".ingredientes"))
 
 
 @bp.post("/ingredientes/<int:id>/apagar")

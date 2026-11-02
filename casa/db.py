@@ -62,6 +62,20 @@ MIGRACOES = {
             SELECT f.id FROM despesas_fixas f WHERE lower(f.descricao) = lower(gastos.descricao)
         ) WHERE fixo = 1;
     """,
+    6: """
+        -- Link do produto no Continente para atualizar o preço dos ingredientes automaticamente.
+        ALTER TABLE ingredientes ADD COLUMN link TEXT NOT NULL DEFAULT '';
+        ALTER TABLE ingredientes ADD COLUMN verificado_em TEXT;            -- última vez que se foi ver o preço
+        ALTER TABLE ingredientes ADD COLUMN aviso_preco TEXT NOT NULL DEFAULT '';  -- problema na última verificação
+
+        CREATE TABLE precos_historico (
+            id INTEGER PRIMARY KEY,
+            ingrediente_id INTEGER NOT NULL REFERENCES ingredientes(id) ON DELETE CASCADE,
+            data TEXT NOT NULL,
+            preco REAL NOT NULL
+        );
+        CREATE INDEX idx_precos_historico ON precos_historico(ingrediente_id, data);
+    """,
 }
 
 

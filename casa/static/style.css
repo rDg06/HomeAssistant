@@ -270,6 +270,14 @@ input[type=date] { cursor: pointer; }
 
 .preparo { white-space: pre-wrap; margin: 0; }
 tr.inativa td { opacity: .55; }
+.preco-celula { display: flex; flex-direction: column; align-items: flex-end; gap: .15rem; }
+.link-celula { display: flex; flex-direction: column; gap: .2rem; min-width: 12rem; }
+.link-celula span { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  .preco-celula, .link-celula { align-items: flex-end; min-width: 0; width: 60%; }
+  .link-celula input, .preco-celula input { width: 100% !important; }
+  .link-celula span { max-width: 100%; white-space: normal; }
+}
 .link, button.link {
   background: none;
   border: 0;

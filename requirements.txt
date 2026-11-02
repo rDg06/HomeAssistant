@@ -1,1 +1,2 @@
 Flask>=3.0,<4
+truststore>=0.9  # certificados HTTPS do sistema, para ler os preços do Continente
