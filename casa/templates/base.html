@@ -13,7 +13,7 @@
       <nav>
         <a href="{{ url_for('gastos.lista') }}" class="{{ 'ativo' if request.blueprint == 'gastos' }}">Gastos</a>
         <a href="{{ url_for('impressao.painel') }}" class="{{ 'ativo' if request.blueprint == 'impressao' }}">Impressão 3D</a>
-        <a href="{{ url_for('receitas.lista') }}" class="{{ 'ativo' if request.blueprint == 'receitas' }}">Receitas</a>
+        <a href="{{ url_for('receitas.lista') }}" class="{{ 'ativo' if request.blueprint == 'receitas' }}">DeliciArt</a>
       </nav>
       <div class="conta">
         <a href="{{ url_for('auth.mudar') }}" class="{{ 'ativo' if request.endpoint == 'auth.mudar' }}">Mudar passe</a>
