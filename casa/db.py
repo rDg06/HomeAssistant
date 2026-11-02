@@ -94,6 +94,16 @@ MIGRACOES = {
         INSERT OR IGNORE INTO config (chave, valor) VALUES
             ('bolo_forno_w', 2000), ('bolo_hora_trabalho', 8), ('bolo_margem_pct', 30);
     """,
+    8: """
+        -- Extras dos bolos com preço definido (caixa, velas...), para escolher nos orçamentos.
+        CREATE TABLE extras_bolo (
+            id INTEGER PRIMARY KEY,
+            nome TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            preco REAL NOT NULL DEFAULT 0
+        );
+        INSERT INTO extras_bolo (nome, preco) VALUES
+            ('Caixa', 0), ('Base de cartão', 0), ('Velas', 0), ('Topo de bolo', 0);
+    """,
 }
 
 

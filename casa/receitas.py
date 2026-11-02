@@ -269,6 +269,7 @@ def ingredientes():
         ingredientes=lista_ing,
         unidades=UNIDADES,
         n_com_link=sum(1 for i in lista_ing if i["link"]),
+        extras=_extras(db),
     )
 
 
@@ -331,7 +332,6 @@ PREDEFINICOES_BOLO = {
     "valor_hora": "bolo_hora_trabalho",
     "margem_pct": "bolo_margem_pct",
 }
-EXTRAS_SUGERIDOS = ["Caixa", "Base de cartão", "Velas", "Topo de bolo"]
 
 
 def calcular_bolo(dados, custos):
@@ -386,6 +386,10 @@ def _ler_orcamento(db):
         "notas": f.get("notas", "").strip(),
     }
     return colunas, dados
+
+
+def _extras(db):
+    return db.execute("SELECT * FROM extras_bolo ORDER BY nome").fetchall()
 
 
 def _receitas_por_tipo(db, custos):
@@ -459,13 +463,19 @@ def orcamento(id=None):
             flash("Já não existe(m): " + ", ".join(apagadas) + ". Escolhe outra receita e guarda.", "erro")
         dados["receitas"] = [l for l in dados["receitas"] if l["id"] in existentes]
     else:
-        # Orçamento novo: valores por defeito e os extras (caixa, velas...) do último orçamento, com os preços.
+        # Orçamento novo: valores por defeito e os mesmos extras do último orçamento (caixa, velas...),
+        # com o preço atual da lista de extras. No primeiro orçamento, os extras da lista que têm preço.
         cfg = {r["chave"]: r["valor"] for r in db.execute("SELECT chave, valor FROM config")}
+        precos_extras = {e["nome"].casefold(): e["preco"] for e in _extras(db) if e["preco"] > 0}
         ultimo = db.execute("SELECT dados FROM orcamentos_bolo ORDER BY id DESC LIMIT 1").fetchone()
-        extras = json.loads(ultimo["dados"])["extras"] if ultimo else []
+        if ultimo:
+            extras = [dict(e, preco=precos_extras.get(e["nome"].casefold(), e["preco"]))
+                      for e in json.loads(ultimo["dados"])["extras"]]
+        else:
+            extras = [{"nome": e["nome"], "qtd": 1, "preco": e["preco"]} for e in _extras(db) if e["preco"] > 0]
         dados = {
             "receitas": [],
-            "extras": extras or [{"nome": n, "qtd": 1, "preco": ""} for n in EXTRAS_SUGERIDOS],
+            "extras": extras or [{"nome": "", "qtd": 1, "preco": ""}],
             "forno_min": "",
             "horas": "",
             "preco_final": None,
@@ -473,7 +483,8 @@ def orcamento(id=None):
         }
     return render_template(
         "receitas/orcamento_bolo.html", orc=atual, dados=dados, grupos=_receitas_por_tipo(db, custos),
-        custos=custos, extras_sugeridos=EXTRAS_SUGERIDOS,
+        custos=custos, extras=_extras(db),
+        precos_extras={e["nome"].casefold(): e["preco"] for e in _extras(db) if e["preco"] > 0},
     )
 
 
@@ -499,3 +510,39 @@ def apagar_orcamento(id):
     db.commit()
     flash("Orçamento apagado.", "ok")
     return redirect(url_for(".orcamentos"))
+
+
+@bp.post("/extras")
+def guardar_extra():
+    """Extras dos bolos com preço (caixa, velas...): geridos na página dos ingredientes e preços."""
+    db = get_db()
+    nome = request.form.get("nome", "").strip()[:80]
+    preco = parse_num(request.form.get("preco"), None)
+    extra_id = request.form.get("id", type=int)
+    if not nome or preco is None or preco < 0:
+        flash("Indica o nome do extra e o preço.", "erro")
+        return redirect(url_for(".ingredientes", _anchor="extras"))
+    try:
+        if extra_id:
+            alterados = db.execute("UPDATE extras_bolo SET nome = ?, preco = ? WHERE id = ?",
+                                   (nome, preco, extra_id)).rowcount
+            if alterados:
+                flash(f"\"{nome}\" atualizado: {eur(preco)}. Os próximos orçamentos usam este preço.", "ok")
+            else:
+                flash("Esse extra já não existe (foi apagado entretanto).", "erro")
+        else:
+            db.execute("INSERT INTO extras_bolo (nome, preco) VALUES (?, ?)", (nome, preco))
+            flash(f"\"{nome}\" adicionado aos extras: {eur(preco)}.", "ok")
+        db.commit()
+    except sqlite3.IntegrityError:
+        flash(f"Já existe um extra chamado \"{nome}\".", "erro")
+    return redirect(url_for(".ingredientes", _anchor="extras"))
+
+
+@bp.post("/extras/<int:id>/apagar")
+def apagar_extra(id):
+    db = get_db()
+    db.execute("DELETE FROM extras_bolo WHERE id = ?", (id,))
+    db.commit()
+    flash("Extra apagado. Os orçamentos já feitos mantêm-se.", "ok")
+    return redirect(url_for(".ingredientes", _anchor="extras"))

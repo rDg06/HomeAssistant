@@ -86,10 +86,10 @@
           </table>
         </div>
         <p style="margin-bottom: 0"><button type="button" class="secundario pequeno" data-adicionar="extras">+ Extra</button>
+          <a class="pequeno" href="{{ url_for('.ingredientes', _anchor='extras') }}" style="margin-left: .5rem">Definir extras e preços</a>
           <span class="muted pequeno" style="margin-left: .5rem">As linhas sem preço não contam.</span></p>
         <datalist id="extras-sugeridos">
-          {% for e in extras_sugeridos %}<option value="{{ e }}">{% endfor %}
-          <option value="Fita"><option value="Flores"><option value="Pasta de açúcar"><option value="Impressão comestível">
+          {% for e in extras %}<option value="{{ e.nome }}" label="{{ e.preco|eur if e.preco else 'sem preço' }}">{% endfor %}
         </datalist>
       </section>
 
@@ -173,6 +173,8 @@
 {% block scripts %}
 <script>
   const CUSTOS = {{ custos|tojson }};
+  // Extras definidos na página dos preços: nome (em minúsculas) -> preço por unidade.
+  const EXTRAS = {{ precos_extras|tojson }};
   const form = document.getElementById('orcamento');
   const v = nome => Math.max(0, lerNum(form.elements[nome].value));
   let atual = {};
@@ -228,6 +230,15 @@
   });
   form.addEventListener('input', calcular);
   form.addEventListener('change', calcular);
+
+  // Escolher um extra definido (ex.: "Caixa") preenche o preço por unidade.
+  document.getElementById('extras').addEventListener('input', e => {
+    if (e.target.name !== 'extra_nome') return;
+    const preco = EXTRAS[e.target.value.trim().toLocaleLowerCase('pt')];
+    if (preco === undefined) return;
+    e.target.closest('tr').querySelector('[name=extra_preco]').value = preco;
+    calcular();
+  });
 
   // Texto para enviar ao cliente: o que leva o bolo e o preço (sem custos nem margem).
   document.getElementById('copiar').addEventListener('click', async e => {

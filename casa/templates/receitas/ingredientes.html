@@ -105,4 +105,44 @@
     </table>
   </div>
 </section>
+
+<section class="cartao" id="extras">
+  <h2>Caixas, decoração e outros extras</h2>
+  <p class="muted pequeno" style="margin-top: -.25rem">Preços por unidade. Nos orçamentos de bolos, ao escolheres um destes extras, o preço é preenchido sozinho.</p>
+  <form method="post" action="{{ url_for('.guardar_extra') }}" class="campos">
+    <label>Nome<input name="nome" required placeholder="ex.: Caixa 30 cm"></label>
+    <label>Preço por unidade (€)<input type="number" name="preco" step="0.01" min="0" inputmode="decimal" required placeholder="ex.: 2.50"></label>
+    <button type="submit">Adicionar extra</button>
+  </form>
+  {% if extras %}
+    <div class="tabela" style="margin-top: 1rem">
+      <table class="responsiva esquerda">
+        <thead><tr><th>Extra</th><th>Preço (€)</th><th></th></tr></thead>
+        <tbody>
+          {% for e in extras %}
+            {% set f = 'extra-' ~ e.id %}
+            <tr>
+              <td data-rotulo="Nome"><input name="nome" form="{{ f }}" value="{{ e.nome }}" required aria-label="Nome" style="min-width: 12rem"></td>
+              <td data-rotulo="Preço (€)">
+                <input type="number" name="preco" form="{{ f }}" value="{{ '%g'|format(e.preco) }}" step="0.01" min="0" style="width: 6rem" aria-label="Preço por unidade">
+                {% if not e.preco %}<span class="pequeno negativo">sem preço</span>{% endif %}
+              </td>
+              <td>
+                <div class="acoes">
+                  <form method="post" action="{{ url_for('.guardar_extra') }}" id="{{ f }}">
+                    <input type="hidden" name="id" value="{{ e.id }}">
+                    <button class="secundario pequeno">Guardar</button>
+                  </form>
+                  <form method="post" action="{{ url_for('.apagar_extra', id=e.id) }}" data-confirmar="Apagar este extra?">
+                    <button class="perigo pequeno">Apagar</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
 {% endblock %}
