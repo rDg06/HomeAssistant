@@ -37,10 +37,25 @@ def create_app(config=None):
     app.register_blueprint(impressao.bp)
     app.register_blueprint(receitas.bp)
 
+    # Páginas de erro em português e com o aspeto da app (também no telemóvel).
+    ERROS = {
+        400: ("Pedido inválido", "Alguma coisa no pedido não estava certa. Volta atrás e tenta outra vez."),
+        404: ("Página não encontrada", "Esta página não existe ou o registo já foi apagado."),
+        405: ("Pedido inválido", "Esta página não pode ser aberta assim. Volta atrás e tenta outra vez."),
+        500: ("Ocorreu um erro", "Algo correu mal na app. Tenta outra vez daqui a pouco."),
+    }
+
+    def pagina_de_erro(codigo):
+        titulo, mensagem = ERROS[codigo]
+        return render_template("erro.html", titulo=titulo, mensagem=mensagem), codigo
+
+    for codigo in ERROS:
+        app.register_error_handler(codigo, lambda erro, codigo=codigo: pagina_de_erro(codigo))
+
     @app.errorhandler(OverflowError)
     def numero_grande_demais(erro):
         # Um id ou número absurdo (ex.: /gastos/99999999999999999999/editar) não cabe no SQLite.
-        return "Pedido inválido: número grande demais.", 400
+        return pagina_de_erro(400)
 
     for filtro in (util.eur, util.num, util.data_curta, util.duracao):
         app.add_template_filter(filtro)

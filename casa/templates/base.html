@@ -124,6 +124,14 @@
       if (campo && campo.showPicker) { try { campo.showPicker(); } catch {} }
     });
 
+    // Barra do preço no telemóvel: esconde-se quando o quadro do preço já está à vista.
+    const barraPreco = document.querySelector('.barra-preco');
+    const resultado = document.getElementById('resultado');
+    if (barraPreco && resultado && 'IntersectionObserver' in window) {
+      new IntersectionObserver(([e]) => { barraPreco.style.visibility = e.isIntersecting ? 'hidden' : ''; })
+        .observe(resultado);
+    }
+
     // Ao voltar atrás no browser a página pode vir da cache com o botão ainda desativado.
     window.addEventListener('pageshow', () => {
       for (const b of document.querySelectorAll('[data-enviado]')) { b.disabled = false; delete b.dataset.enviado; }

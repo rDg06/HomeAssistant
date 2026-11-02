@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<section class="cartao entrada">
+  <h1>{{ titulo }}</h1>
+  <p class="muted">{{ mensagem }}</p>
+  <div class="acoes" style="justify-content: flex-start">
+    <a class="botao" href="{{ url_for('inicio') }}">Ir para o início</a>
+    <button type="button" class="secundario" onclick="history.back()">Voltar</button>
+  </div>
+</section>
+{% endblock %}

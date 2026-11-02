@@ -461,3 +461,27 @@ button.armado, button.armado:hover { background: var(--danger); border-color: va
 .janela p { white-space: normal; }
 .link-linha { display: flex; align-items: center; gap: .35rem; width: 100%; }
 .link-linha input { flex: 1; min-width: 0; }
+
+/* Barra com o preço no fundo do ecrã (calculadora 3D e orçamento de bolo), só no telemóvel */
+.barra-preco { display: none; }
+.destaque { scroll-margin-top: 7rem; }
+@media (max-width: 640px) {
+  body:has(.barra-preco) main { padding-bottom: 5rem; }
+  .barra-preco {
+    display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    position: fixed; left: .75rem; right: .75rem; bottom: .75rem; z-index: 15;
+    padding: .7rem 1rem; border-radius: var(--radius);
+    background: #12302a; color: #f1f7f4; text-decoration: none;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  }
+  .barra-preco b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+}
+
+/* Ecrãs tácteis: botões e ícones pequenos com tamanho suficiente para o dedo */
+@media (pointer: coarse) {
+  button.pequeno, .botao.pequeno { min-height: 2.5rem; padding-inline: .8rem; }
+  .ajuda { width: 1.4rem; height: 1.4rem; font-size: .8rem; }
+  .conta a { padding: .5rem 0; }
+  button.link { padding: .4rem 0; }
+  .aviso-icone { min-width: 2.5rem; min-height: 2.5rem; }
+}
