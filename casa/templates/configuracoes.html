@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titulo %}Configurações{% endblock %}
+{% block conteudo %}
+<h1>Configurações</h1>
+
+<section class="cartao" id="copias">
+  <h2>Cópias de segurança</h2>
+  <p class="muted pequeno" style="margin-top: -.25rem">
+    Uma vez por semana a app copia todos os dados para cada uma destas pastas, e em cada uma ficam as {{ manter }} cópias
+    mais recentes. Para teres as cópias em dois discos, junta uma pasta de cada disco (ex.: <code>D:\Backups Casa</code>).
+    Se um disco falhar, a cópia no outro é feita na mesma.
+  </p>
+
+  <div class="tabela">
+    <table class="responsiva esquerda">
+      <thead><tr><th>Pasta</th><th>Última cópia</th><th>Cópias</th><th></th></tr></thead>
+      <tbody>
+        {% for p in pastas %}
+          <tr>
+            <td class="titulo"><code class="caminho">{{ p.pasta }}</code>{% if por_defeito %} <span class="muted pequeno">(por defeito)</span>{% endif %}</td>
+            <td data-rotulo="Última cópia">
+              {% if p.ultima %}
+                {{ p.ultima.strftime('%d/%m/%Y %H:%M') }}
+                {% if (agora - p.ultima).days > dias %}<span class="negativo pequeno">⚠ atrasada</span>{% endif %}
+              {% elif p.acessivel or por_defeito %}<span class="muted">ainda nenhuma</span>{# a pasta por defeito é criada na 1.ª cópia #}
+              {% else %}<span class="negativo">⚠ pasta não encontrada</span>{% endif %}
+            </td>
+            <td data-rotulo="Cópias">{{ p.n }}</td>
+            <td>
+              {% if not da_variavel and not por_defeito %}
+                <div class="acoes">
+                  <form method="post" action="{{ url_for('.remover_pasta') }}" data-confirmar="Tirar esta pasta da lista? As cópias que lá estão não são apagadas.">
+                    <input type="hidden" name="pasta" value="{{ p.pasta }}">
+                    <button class="perigo pequeno">Tirar</button>
+                  </form>
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if da_variavel %}
+    <p class="aviso erro">As pastas estão definidas na variável de ambiente <code>CASA_BACKUPS</code>, por isso não se mudam aqui.</p>
+  {% else %}
+    <form method="post" action="{{ url_for('.adicionar_pasta') }}" class="campos" style="margin-top: 1rem">
+      <label class="largo">Juntar uma pasta
+        <input name="pasta" required placeholder="ex.: D:\Backups Casa" autocomplete="off" spellcheck="false">
+      </label>
+      <button type="submit" class="secundario">Juntar pasta</button>
+    </form>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('.copia_agora') }}" style="margin-top: 1rem">
+    <button type="submit">Fazer cópia agora</button>
+  </form>
+</section>
+
+<section class="cartao" id="passe">
+  <h2>Palavra-passe</h2>
+  <p class="muted pequeno" style="margin-top: -.25rem">Depois de a mudar, os outros aparelhos têm de voltar a entrar com a nova.</p>
+  <form method="post" action="{{ url_for('auth.mudar') }}" class="campos">
+    <label>Palavra-passe atual
+      <input type="password" name="atual" autocomplete="current-password" required>
+    </label>
+    <label>Nova (mínimo {{ minimo }} caracteres)
+      <input type="password" name="nova" minlength="{{ minimo }}" autocomplete="new-password" required>
+    </label>
+    <label>Repetir a nova
+      <input type="password" name="confirmar" minlength="{{ minimo }}" autocomplete="new-password" required>
+    </label>
+    <button type="submit">Mudar palavra-passe</button>
+  </form>
+</section>
+{% endblock %}

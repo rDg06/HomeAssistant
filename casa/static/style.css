@@ -485,3 +485,4 @@ button.armado, button.armado:hover { background: var(--danger); border-color: va
   button.link { padding: .4rem 0; }
   .aviso-icone { min-width: 2.5rem; min-height: 2.5rem; }
 }
+.caminho { word-break: break-all; font-size: .9rem; }

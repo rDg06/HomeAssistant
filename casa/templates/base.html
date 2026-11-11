@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Início{% endblock %} · Casa</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <!-- Ícone no separador e no ecrã principal do telemóvel ("Adicionar ao ecrã principal"). -->
+  <link rel="icon" href="{{ url_for('static', filename='icone.svg') }}" type="image/svg+xml">
+  <meta name="theme-color" content="#14302b">
+  <meta name="apple-mobile-web-app-title" content="Casa">
 </head>
 <body>
   <header class="topo">
@@ -16,7 +20,7 @@
         <a href="{{ url_for('receitas.orcamentos') }}" class="{{ 'ativo' if request.blueprint == 'receitas' }}">DeliciArt</a>
       </nav>
       <div class="conta">
-        <a href="{{ url_for('auth.mudar') }}" class="{{ 'ativo' if request.endpoint == 'auth.mudar' }}">Mudar passe</a>
+        <a href="{{ url_for('configuracoes.pagina') }}" class="{{ 'ativo' if request.blueprint == 'configuracoes' }}" title="Configurações">⚙ Configurações</a>
         <form method="post" action="{{ url_for('auth.sair') }}">
           <button class="secundario pequeno">Sair</button>
         </form>

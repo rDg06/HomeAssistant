@@ -1,2 +1,3 @@
 Flask>=3.0,<4
+waitress>=3.0  # servidor para o uso normal (o do Flask é só para desenvolver)
 truststore>=0.9  # certificados HTTPS do sistema, para ler os preços do Continente
