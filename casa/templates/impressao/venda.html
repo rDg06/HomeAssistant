@@ -28,7 +28,7 @@
     </div>
     <div class="rodape-peca">
       <span class="muted pequeno sugerido"></span>
-      <span class="pequeno">Total <b class="total-linha"></b> · lucro <b class="lucro-linha"></b></span>
+      <span class="pequeno">Total <b class="total-linha"></b> · lucro <b class="lucro-linha"></b><span class="mo-linha muted"></span></span>
       <button type="button" class="perigo pequeno remover">Remover peça</button>
     </div>
   </div>
@@ -53,7 +53,7 @@
     <div id="pecas">
       {% for item in itens %}{{ peca(item) }}{% endfor %}
     </div>
-    <p class="resumo-venda">Total <b id="total"></b> · Lucro <b id="lucro"></b></p>
+    <p class="resumo-venda">Total <b id="total"></b> · Lucro <b id="lucro"></b><span id="lucro-mo" class="muted"></span></p>
     <p style="margin-bottom: 0"><button type="button" class="secundario pequeno" id="adicionar">+ Peça</button></p>
   </section>
 
@@ -84,7 +84,7 @@
   }
 
   function atualizar(mudou) {
-    let total = 0, custo = 0;
+    let total = 0, custo = 0, maoObra = 0;
     for (const bloco of lista.querySelectorAll('.peca-venda')) {
       const campo = name => bloco.querySelector(`[name=${name}]`);
       const r = custoDaPeca(bloco);
@@ -101,6 +101,10 @@
       const lucro = bloco.querySelector('.lucro-linha');
       lucro.textContent = fmtEur(t - c);
       lucro.className = 'lucro-linha ' + (t - c < 0 ? 'negativo' : 'positivo');
+      // Com os dados da impressão: o lucro mais o valor da tua mão de obra (preparação e acabamento).
+      const mo = r ? qtd * r.mao_obra : 0;
+      bloco.querySelector('.mo-linha').textContent = mo ? ` · ${fmtEur(t - c + mo)} com mão de obra` : '';
+      maoObra += mo;
       total += t;
       custo += c;
     }
@@ -109,6 +113,7 @@
     const celula = document.getElementById('lucro');
     celula.textContent = fmtEur(lucro);
     celula.className = lucro < 0 ? 'negativo' : 'positivo';
+    document.getElementById('lucro-mo').textContent = maoObra ? ` · ${fmtEur(lucro + maoObra)} com mão de obra` : '';
     for (const b of lista.querySelectorAll('.remover')) b.hidden = lista.children.length < 2;
   }
 

@@ -532,3 +532,6 @@ tr.a-arrastar .pega-botao { cursor: grabbing; }
   table.responsiva .pega-botao { font-size: 1.4rem; padding: .5rem .6rem; }  /* maior para o dedo */
   table.responsiva td.pega + td { padding-right: 2.5rem; }
 }
+/* Lucro com o lucro + mão de obra por baixo */
+.lucro-duplo { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.25; }
+.lucro-duplo small { font-size: .75rem; white-space: nowrap; }

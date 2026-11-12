@@ -44,3 +44,12 @@
   <td class="pega"><button type="button" class="pega-botao" title="Arrasta para mudar a ordem"
       aria-label="Mudar a ordem (arrasta, ou usa as setas para cima e para baixo)">⠿</button></td>
 {%- endmacro %}
+
+{# Lucro e, por baixo, o lucro somando a mão de obra (o valor do teu trabalho), quando há mão de obra. #}
+{% macro lucro_mo(lucro, lucro_mo) -%}
+  <span class="lucro-duplo"><span class="{{ 'negativo' if lucro < 0 else 'positivo' }}">{{ lucro|eur }}</span>
+    {%- if lucro_mo is not none and (lucro_mo - lucro)|abs >= 0.005 -%}
+      <small class="muted" title="Lucro mais o valor da tua mão de obra (preparação e acabamento)">{{ lucro_mo|eur }} c/ mão de obra</small>
+    {%- endif -%}
+  </span>
+{%- endmacro %}

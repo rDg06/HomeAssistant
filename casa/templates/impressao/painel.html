@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import escolher_mes %}
+{% from "_macros.html" import ajuda, escolher_mes, lucro_mo %}
 {% block titulo %}Impressão 3D{% endblock %}
 {% block conteudo %}
 {% include "impressao/_subnav.html" %}
@@ -22,11 +22,13 @@
   <div class="numero">
     <div class="rotulo">Lucro em {{ nome_mes(mes) }}</div>
     <div class="valor {{ 'negativo' if resumo_mes.lucro < 0 else 'positivo' }}">{{ resumo_mes.lucro|eur }}</div>
+    <div class="extra muted">{{ resumo_mes.lucro_mo|eur }} com mão de obra
+      {{ ajuda('O lucro mais o valor da tua mão de obra (preparação e acabamento): o que ganhas se o trabalho for teu. Só conta as vendas com os dados da calculadora.') }}</div>
   </div>
   <div class="numero">
     <div class="rotulo">Lucro em {{ mes[:4] }}</div>
     <div class="valor {{ 'negativo' if resumo_ano.lucro < 0 else 'positivo' }}">{{ resumo_ano.lucro|eur }}</div>
-    <div class="extra muted">{{ resumo_ano.faturado|eur }} faturado</div>
+    <div class="extra muted">{{ resumo_ano.lucro_mo|eur }} com mão de obra · {{ resumo_ano.faturado|eur }} faturado</div>
   </div>
 </div>
 
@@ -58,7 +60,7 @@
               <td class="num" data-rotulo="Quantidade">{{ v.quantidade }}</td>
               <td class="num" data-rotulo="Preço un.">{{ '—' if v.pecas else v.preco_unit|eur }}</td>
               <td class="num" data-rotulo="Total">{{ (v.quantidade * v.preco_unit)|eur }}</td>
-              <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}" data-rotulo="Lucro">{{ v.lucro|eur }}</td>
+              <td class="num" data-rotulo="Lucro">{{ lucro_mo(v.lucro, v.lucro_mo) }}</td>
               <td>
                 <div class="acoes">
                   <a class="botao secundario pequeno" href="{{ url_for('.editar_venda', id=v.id) }}">Editar</a>
@@ -75,7 +77,7 @@
                 <td class="num">{{ p.qtd }}<span class="so-telemovel">×</span></td>
                 <td class="num so-computador">{{ p.preco_unit|eur }}</td>
                 <td class="num">{{ p.total|eur }}</td>
-                <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}"><span class="so-telemovel muted">lucro </span>{{ p.lucro|eur }}</td>
+                <td class="num"><span class="so-telemovel muted">lucro </span>{{ lucro_mo(p.lucro, p.lucro_mo) }}</td>
                 <td class="so-computador"></td>
               </tr>
             {% endfor %}
@@ -111,7 +113,7 @@
               <td class="num" data-rotulo="Tempo">{{ p.horas|duracao }}</td>
               <td class="num" data-rotulo="Custo">{{ p.custo.total|eur }}</td>
               <td class="num" data-rotulo="Preço"><span>{{ p.preco|eur }}{% if p.preco_venda is none %} <span class="muted pequeno">(sugerido)</span>{% endif %}</span></td>
-              <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}" data-rotulo="Lucro">{{ p.lucro|eur }}</td>
+              <td class="num" data-rotulo="Lucro">{{ lucro_mo(p.lucro, p.lucro_mo) }}</td>
               <td>
                 <div class="acoes">
                   <a class="botao pequeno" href="{{ url_for('.calculadora', id=p.id) }}" title="Abre a peça na calculadora para a juntares ao orçamento">Vender</a>

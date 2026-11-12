@@ -77,7 +77,8 @@ def pecas_com_custo(db, peca_id=None):
     for r in rows:
         custo = calcular(cfg, r["preco_kg"], r["gramas"], r["horas"], r["horas_trabalho"], r["custos_extra"])
         preco = r["preco_venda"] if r["preco_venda"] is not None else custo["preco_sugerido"]
-        pecas.append(dict(r, custo=custo, preco=preco, lucro=preco - custo["total"]))
+        lucro = preco - custo["total"]
+        pecas.append(dict(r, custo=custo, preco=preco, lucro=lucro, lucro_mo=lucro + custo["mao_obra"]))
     return pecas
 
 
@@ -86,11 +87,13 @@ def resumo_vendas(db, prefixo):
     r = db.execute(
         """SELECT COUNT(*) AS n, COALESCE(SUM(quantidade), 0) AS unidades,
                   COALESCE(SUM(quantidade * preco_unit), 0) AS faturado,
-                  COALESCE(SUM(quantidade * custo_unit + outros_custos), 0) AS custos
+                  COALESCE(SUM(quantidade * custo_unit + outros_custos), 0) AS custos,
+                  COALESCE(SUM(quantidade * mao_obra_unit), 0) AS mao_obra
            FROM vendas WHERE data LIKE ?""",
         (prefixo + "%",),
     ).fetchone()
-    return dict(r, lucro=r["faturado"] - r["custos"])
+    lucro = r["faturado"] - r["custos"]
+    return dict(r, lucro=lucro, lucro_mo=lucro + r["mao_obra"])
 
 
 def _filamentos(db):
@@ -128,8 +131,16 @@ def _calc_da_peca(peca):
     })
 
 
-def _item(nome, qtd, preco_unit, custo_unit, calc=None):
-    """Uma peça de uma venda, validada. Dá ValueError/TypeError/OverflowError se os valores não servirem."""
+def _mao_obra(cfg, calc):
+    """Mão de obra por unidade (preparação fixa + acabamento), igual à linha da mão de obra na calculadora."""
+    if not calc:
+        return 0.0
+    return (cfg["prep_min"] + calc["trabalho_min"]) / 60 * cfg["valor_hora_trabalho"]
+
+
+def _item(nome, qtd, preco_unit, custo_unit, calc=None, cfg=None):
+    """Uma peça de uma venda, validada. Dá ValueError/TypeError/OverflowError se os valores não servirem.
+    Com os dados da calculadora (`calc`) e a configuração (`cfg`), guarda também a mão de obra por unidade."""
     item = {
         "nome": str(nome or "").strip()[:200] or "Impressão 3D",
         "qtd": min(max(1, int(qtd or 1)), 100000),
@@ -140,6 +151,8 @@ def _item(nome, qtd, preco_unit, custo_unit, calc=None):
         raise ValueError("valor inválido")
     if calc:
         item["calc"] = calc
+        if cfg:
+            item["mao_obra_unit"] = _mao_obra(cfg, calc)
     return item
 
 
@@ -149,7 +162,8 @@ def _colunas_venda(itens):
         i = itens[0]
         # Uma peça só: a lista só se guarda se tiver os dados da calculadora.
         return {"descricao": i["nome"], "quantidade": i["qtd"], "preco_unit": i["preco_unit"],
-                "custo_unit": i["custo_unit"], "itens": json.dumps(itens, ensure_ascii=False) if "calc" in i else None}
+                "custo_unit": i["custo_unit"], "mao_obra_unit": i.get("mao_obra_unit", 0.0),
+                "itens": json.dumps(itens, ensure_ascii=False) if "calc" in i else None}
     unidades = sum(i["qtd"] for i in itens)
     return {
         "descricao": " + ".join(f"{i['qtd']}× {i['nome']}" for i in itens),
@@ -157,6 +171,7 @@ def _colunas_venda(itens):
         # Médias por unidade: quantidade × preço continua a dar o total certo nos resumos.
         "preco_unit": sum(i["qtd"] * i["preco_unit"] for i in itens) / unidades,
         "custo_unit": sum(i["qtd"] * i["custo_unit"] for i in itens) / unidades,
+        "mao_obra_unit": sum(i["qtd"] * i.get("mao_obra_unit", 0.0) for i in itens) / unidades,
         "itens": json.dumps(itens, ensure_ascii=False),
     }
 
@@ -184,6 +199,7 @@ def _com_pecas(vendas):
         for p in pecas or []:
             p["total"] = p["qtd"] * p["preco_unit"]
             p["lucro"] = p["qtd"] * (p["preco_unit"] - p["custo_unit"])
+            p["lucro_mo"] = p["lucro"] + p["qtd"] * p.get("mao_obra_unit", 0.0)
         lista.append(dict(v, pecas=pecas))
     return lista
 
@@ -201,7 +217,8 @@ def painel():
     if not mes_valido(mes):
         mes = hoje_mes()
     vendas_mes = db.execute(
-        """SELECT *, quantidade * (preco_unit - custo_unit) - outros_custos AS lucro
+        """SELECT *, quantidade * (preco_unit - custo_unit) - outros_custos AS lucro,
+                  quantidade * (preco_unit - custo_unit + mao_obra_unit) - outros_custos AS lucro_mo
            FROM vendas WHERE substr(data, 1, 7) = ? ORDER BY data DESC, id DESC""",
         (mes,),
     ).fetchall()
@@ -311,9 +328,11 @@ def nova_venda():
 
     quantidade = min(max(1, f.get("quantidade", type=int) or 1), 100000)
     calc = _calc_da_peca(peca) if peca else None
+    cfg = ler_config(db)
     db.execute(
-        """INSERT INTO vendas (data, peca_id, descricao, quantidade, preco_unit, custo_unit, itens, outros_custos, cliente, notas)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO vendas (data, peca_id, descricao, quantidade, preco_unit, custo_unit, mao_obra_unit, itens,
+                               outros_custos, cliente, notas)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             data_venda,
             peca_id,
@@ -321,8 +340,9 @@ def nova_venda():
             quantidade,
             preco_unit,
             custo_unit,
+            _mao_obra(cfg, calc),
             # Os dados da peça ficam com a venda, para se poder editar mesmo que a peça mude ou seja apagada.
-            json.dumps([_item(descricao, quantidade, preco_unit, custo_unit, calc)], ensure_ascii=False) if calc else None,
+            json.dumps([_item(descricao, quantidade, preco_unit, custo_unit, calc, cfg)], ensure_ascii=False) if calc else None,
             max(0.0, parse_num(f.get("outros_custos"))),
             f.get("cliente", "").strip(),
             f.get("notas", "").strip(),
@@ -339,15 +359,16 @@ def registar_orcamento():
     pedidos = request.get_json(silent=True)
     if not isinstance(pedidos, list) or not pedidos or not all(isinstance(p, dict) for p in pedidos):
         abort(400)
+    db = get_db()
+    cfg = ler_config(db)
     try:
-        itens = [_item(p.get("nome"), p.get("qtd"), p["preco_unit"], p.get("custo_unit"), _calc(p.get("campos")))
+        itens = [_item(p.get("nome"), p.get("qtd"), p["preco_unit"], p.get("custo_unit"), _calc(p.get("campos")), cfg)
                  for p in pedidos]
     except (KeyError, TypeError, ValueError, OverflowError):
         abort(400)
-    db = get_db()
     db.execute(
-        """INSERT INTO vendas (data, descricao, quantidade, preco_unit, custo_unit, itens, cliente)
-           VALUES (:data, :descricao, :quantidade, :preco_unit, :custo_unit, :itens, :cliente)""",
+        """INSERT INTO vendas (data, descricao, quantidade, preco_unit, custo_unit, mao_obra_unit, itens, cliente)
+           VALUES (:data, :descricao, :quantidade, :preco_unit, :custo_unit, :mao_obra_unit, :itens, :cliente)""",
         dict(_colunas_venda(itens), data=date.today().isoformat(),
              cliente=str(pedidos[0].get("cliente") or "").strip()[:200]),
     )
@@ -365,6 +386,7 @@ def editar_venda(id):
         abort(404)
     if request.method == "POST":
         f = request.form
+        cfg = ler_config(db)
         itens = []
         nomes = f.getlist("nome")
         coluna = lambda campo: f.getlist(campo) + [""] * (len(nomes) - len(f.getlist(campo)))
@@ -375,7 +397,7 @@ def editar_venda(id):
                 if not nome.strip() and not preco.strip():
                     continue  # linha deixada em branco
                 calc = _calc(dict(zip(("filamento_id",) + CAMPOS_CALC, dados)))
-                itens.append(_item(nome, parse_num(qtd, 1), parse_num(preco, None), parse_num(custo), calc))
+                itens.append(_item(nome, parse_num(qtd, 1), parse_num(preco, None), parse_num(custo), calc, cfg))
         except (TypeError, ValueError, OverflowError):
             itens = None
         if not itens:
@@ -384,7 +406,7 @@ def editar_venda(id):
         data_venda = data_valida(f.get("data")) or venda["data"]
         db.execute(
             """UPDATE vendas SET data = :data, peca_id = :peca_id, descricao = :descricao, quantidade = :quantidade,
-                   preco_unit = :preco_unit, custo_unit = :custo_unit, itens = :itens,
+                   preco_unit = :preco_unit, custo_unit = :custo_unit, mao_obra_unit = :mao_obra_unit, itens = :itens,
                    outros_custos = :outros_custos, cliente = :cliente, notas = :notas
                WHERE id = :id""",
             dict(

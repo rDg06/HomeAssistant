@@ -67,6 +67,7 @@
         <div class="linha-destaque">
           <span>Por unidade: <b data-r="unit"></b></span>
           <span>Lucro: <b data-r="lucro_total"></b></span>
+          <span title="O lucro mais o valor da tua mão de obra (preparação e acabamento)">Com mão de obra: <b data-r="lucro_mo"></b></span>
         </div>
         <div class="acoes" style="justify-content: flex-start; margin-top: .9rem">
           <button type="button" class="claro" id="adicionar">Adicionar ao orçamento</button>
@@ -135,6 +136,7 @@
     r.unit = form.elements.preco_venda.value ? v('preco_venda') : r.preco_sugerido;
     r.final = r.unit * qtd;
     r.lucro_total = (r.unit - r.producao - r.extra) * qtd;
+    r.lucro_mo = r.lucro_total + r.mao_obra * qtd;  // o lucro mais o valor do teu trabalho
 
     for (const el of document.querySelectorAll('[data-r]')) el.textContent = fmtEur(r[el.dataset.r]);
     document.querySelector('[data-t=gramas]').textContent = `(${v('gramas').toLocaleString('pt-PT')} g)`;
@@ -149,6 +151,7 @@
       custo_unit: Math.round((r.producao + r.extra) * 100) / 100,
       total: r.final,
       lucro: r.lucro_total,
+      lucro_mo: r.lucro_mo,
       campos: Object.fromEntries(CAMPOS.filter(c => form.elements[c]).map(c => [c, form.elements[c].value])),
     };
   }

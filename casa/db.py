@@ -118,6 +118,11 @@ MIGRACOES = {
         ALTER TABLE ingredientes ADD COLUMN ordem INTEGER;
         ALTER TABLE extras_bolo ADD COLUMN ordem INTEGER;
     """,
+    11: """
+        -- Mão de obra por unidade de cada venda 3D (preparação + acabamento), para mostrar o lucro
+        -- com e sem ela. Nas vendas sem os dados da calculadora fica a 0.
+        ALTER TABLE vendas ADD COLUMN mao_obra_unit REAL NOT NULL DEFAULT 0;
+    """,
 }
 
 
