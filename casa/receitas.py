@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
-from . import precos
+from . import ordem, precos
 from .db import get_db
 from .util import data_valida, eur, mes_valido, parse_num, sem_acentos
 
@@ -29,7 +29,7 @@ def _custos(db):
 
 
 def _ingredientes(db):
-    return db.execute("SELECT * FROM ingredientes ORDER BY nome").fetchall()
+    return db.execute(f"SELECT * FROM ingredientes ORDER BY {ordem.ordenar()}").fetchall()
 
 
 def _obter(db, id):
@@ -243,10 +243,11 @@ def ingredientes():
             else:
                 novo_id = db.execute(
                     """INSERT INTO ingredientes (nome, unidade, qtd_embalagem, preco_embalagem, atualizado_em, link,
-                                                verificado_em)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                                                verificado_em, ordem)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (nome, unidade, qtd, preco, hoje, link,
-                     datetime.now().isoformat(timespec="seconds") if link else None),
+                     datetime.now().isoformat(timespec="seconds") if link else None,
+                     ordem.proxima(db, "ingredientes")),
                 ).lastrowid
                 db.execute("INSERT INTO precos_historico (ingrediente_id, data, preco) VALUES (?, ?, ?)",
                            (novo_id, hoje, preco))
@@ -258,11 +259,11 @@ def ingredientes():
         return redirect(url_for(".ingredientes"))
 
     lista_ing = db.execute(
-        """SELECT i.*, i.preco_embalagem / i.qtd_embalagem AS preco_unit, COUNT(DISTINCT ri.receita_id) AS n_receitas,
+        f"""SELECT i.*, i.preco_embalagem / i.qtd_embalagem AS preco_unit, COUNT(DISTINCT ri.receita_id) AS n_receitas,
                   (SELECT h.preco FROM precos_historico h WHERE h.ingrediente_id = i.id
                    ORDER BY h.data DESC, h.id DESC LIMIT 1 OFFSET 1) AS preco_anterior
            FROM ingredientes i LEFT JOIN receita_ingredientes ri ON ri.ingrediente_id = i.id
-           GROUP BY i.id ORDER BY i.nome"""
+           GROUP BY i.id ORDER BY {ordem.ordenar('i')}"""
     ).fetchall()
     return render_template(
         "receitas/ingredientes.html",
@@ -415,7 +416,7 @@ def _ler_orcamento(db):
 
 
 def _extras(db):
-    return db.execute("SELECT * FROM extras_bolo ORDER BY nome").fetchall()
+    return db.execute(f"SELECT * FROM extras_bolo ORDER BY {ordem.ordenar()}").fetchall()
 
 
 def _receitas_por_tipo(db, custos):
@@ -557,7 +558,8 @@ def guardar_extra():
             else:
                 flash("Esse extra já não existe (foi apagado entretanto).", "erro")
         else:
-            db.execute("INSERT INTO extras_bolo (nome, preco) VALUES (?, ?)", (nome, preco))
+            db.execute("INSERT INTO extras_bolo (nome, preco, ordem) VALUES (?, ?, ?)",
+                       (nome, preco, ordem.proxima(db, "extras_bolo")))
             flash(f"\"{nome}\" adicionado aos extras: {eur(preco)}.", "ok")
         db.commit()
     except sqlite3.IntegrityError:

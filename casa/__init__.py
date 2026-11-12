@@ -28,7 +28,7 @@ def create_app(config=None):
 
     db.init_app(app)
 
-    from . import auth, backup, configuracoes, gastos, impressao, receitas
+    from . import auth, backup, configuracoes, gastos, impressao, ordem, receitas
 
     app.register_blueprint(auth.bp)
     app.before_request(auth.proteger)
@@ -37,6 +37,7 @@ def create_app(config=None):
     app.register_blueprint(impressao.bp)
     app.register_blueprint(receitas.bp)
     app.register_blueprint(configuracoes.bp)
+    app.register_blueprint(ordem.bp)
 
     # Páginas de erro em português e com o aspeto da app (também no telemóvel).
     ERROS = {

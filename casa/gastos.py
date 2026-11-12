@@ -5,6 +5,7 @@ from datetime import date
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
+from . import ordem
 from .db import get_db
 from .util import data_valida, deslocar_mes, existe, hoje_mes, mes_valido, nome_mes, parse_num
 
@@ -68,7 +69,7 @@ def _fixas_por_lancar(db, mes):
 
 
 def _categorias(db):
-    return db.execute("SELECT * FROM categorias ORDER BY nome").fetchall()
+    return db.execute(f"SELECT * FROM categorias ORDER BY {ordem.ordenar()}").fetchall()
 
 
 def _ler_form():
@@ -367,15 +368,15 @@ def categorias():
                 else:
                     flash("Essa categoria já não existe (foi apagada entretanto).", "erro")
             else:
-                db.execute("INSERT INTO categorias (nome) VALUES (?)", (nome,))
+                db.execute("INSERT INTO categorias (nome, ordem) VALUES (?, ?)", (nome, ordem.proxima(db, "categorias")))
                 flash(f"Categoria \"{nome}\" criada.", "ok")
             db.commit()
         except sqlite3.IntegrityError:
             flash(f"Já existe uma categoria chamada \"{nome}\".", "erro")
         return redirect(url_for(".categorias"))
     lista_categorias = db.execute(
-        """SELECT c.*, COUNT(g.id) AS n, COALESCE(SUM(g.valor), 0) AS total FROM categorias c
-           LEFT JOIN gastos g ON g.categoria_id = c.id GROUP BY c.id ORDER BY c.nome"""
+        f"""SELECT c.*, COUNT(g.id) AS n, COALESCE(SUM(g.valor), 0) AS total FROM categorias c
+            LEFT JOIN gastos g ON g.categoria_id = c.id GROUP BY c.id ORDER BY {ordem.ordenar('c')}"""
     ).fetchall()
     return render_template("gastos/categorias.html", categorias=lista_categorias)
 

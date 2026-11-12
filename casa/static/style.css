@@ -517,3 +517,18 @@ button.armado, button.armado:hover { background: var(--danger); border-color: va
   .aviso-icone { min-width: 2.5rem; min-height: 2.5rem; }
 }
 .caminho { word-break: break-all; font-size: .9rem; }
+/* Listas reordenáveis: barra com a ordem atual e a pega ⠿ de cada linha */
+.barra-ordem { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+td.pega { width: 2rem; padding-right: 0; }
+.pega-botao { cursor: grab; touch-action: none; user-select: none; background: transparent; border: 0; color: var(--muted);
+              font-size: 1.15rem; line-height: 1; padding: .3rem .25rem; }
+.pega-botao:hover, .pega-botao:focus-visible { color: var(--text); }
+tr.a-arrastar td { background: var(--accent-soft); }
+tr.a-arrastar .pega-botao { cursor: grabbing; }
+@media (max-width: 640px) {
+  /* No cartão do telemóvel, a pega fica no canto de cima à direita */
+  table.responsiva tr[data-id] { position: relative; }
+  table.responsiva td.pega { position: absolute; top: .3rem; right: -.4rem; width: auto; padding: 0; }
+  table.responsiva .pega-botao { font-size: 1.4rem; padding: .5rem .6rem; }  /* maior para o dedo */
+  table.responsiva td.pega + td { padding-right: 2.5rem; }
+}

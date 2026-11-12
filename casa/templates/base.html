@@ -140,6 +140,70 @@
     window.addEventListener('pageshow', () => {
       for (const b of document.querySelectorAll('[data-enviado]')) { b.disabled = false; delete b.dataset.enviado; }
     });
+
+    // Listas reordenáveis (ver ordem.py): arrastar a pega ⠿ (rato ou dedo) ou usar as setas com ela selecionada.
+    for (const corpo of document.querySelectorAll('tbody[data-ordem]')) {
+      const linhas = () => [...corpo.querySelectorAll(':scope > tr[data-id]')];
+      const ordemAtual = () => linhas().map(r => r.dataset.id).join();
+      async function gravar(antes) {
+        if (ordemAtual() === antes) return;
+        const resp = await fetch(corpo.dataset.ordem, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(linhas().map(r => r.dataset.id)),
+        });
+        const barra = document.querySelector(`[data-barra-ordem="${corpo.dataset.tabela}"]`);
+        if (!resp.ok || !barra) return;
+        barra.querySelector('[data-texto-ordem]').textContent = 'Pela tua ordem · arrasta ⠿ para mudar';
+        barra.querySelector('form').hidden = false;
+      }
+
+      corpo.addEventListener('pointerdown', e => {
+        const pega = e.target.closest('.pega-botao');
+        if (!pega || e.button > 0) return;
+        e.preventDefault();
+        const linha = pega.closest('tr');
+        const antes = ordemAtual();
+        linha.classList.add('a-arrastar');
+        // Ouve-se na janela inteira: mudar a linha de sítio na página faria perder a captura do ponteiro na pega.
+        const mover = ev => {
+          if (ev.pointerId !== e.pointerId) return;
+          const depois = linhas().find(r => {
+            if (r === linha) return false;
+            const caixa = r.getBoundingClientRect();
+            return ev.clientY < caixa.top + caixa.height / 2;
+          });
+          corpo.insertBefore(linha, depois || null);
+          // Perto das margens do ecrã a página desliza, para listas maiores que o ecrã.
+          if (ev.clientY < 60) scrollBy(0, -12);
+          else if (ev.clientY > innerHeight - 60) scrollBy(0, 12);
+        };
+        const largar = ev => {
+          if (ev.pointerId !== e.pointerId) return;
+          removeEventListener('pointermove', mover);
+          removeEventListener('pointerup', largar);
+          removeEventListener('pointercancel', largar);
+          linha.classList.remove('a-arrastar');
+          gravar(antes);
+        };
+        addEventListener('pointermove', mover);
+        addEventListener('pointerup', largar);
+        addEventListener('pointercancel', largar);
+      });
+
+      corpo.addEventListener('keydown', e => {
+        const pega = e.target.closest('.pega-botao');
+        if (!pega || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+        e.preventDefault();
+        const linha = pega.closest('tr');
+        const antes = ordemAtual();
+        const todas = linhas();
+        const vizinha = todas[todas.indexOf(linha) + (e.key === 'ArrowUp' ? -1 : 1)];
+        if (!vizinha) return;
+        corpo.insertBefore(linha, e.key === 'ArrowUp' ? vizinha : vizinha.nextSibling);
+        pega.focus();
+        gravar(antes);
+      });
+    }
   </script>
   {% block scripts %}{% endblock %}
 </body>

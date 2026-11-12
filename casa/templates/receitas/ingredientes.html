@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ajuda %}
+{% from "_macros.html" import ajuda, barra_ordem, corpo_ordem, pega %}
 {% block titulo %}Ingredientes{% endblock %}
 {% block conteudo %}
 {% include "receitas/_subnav.html" %}
@@ -38,16 +38,18 @@
 </section>
 
 <section class="cartao">
+  {{ barra_ordem('ingredientes', ingredientes) }}
   <div class="tabela">
     <table class="responsiva esquerda">
       <thead>
-        <tr><th>Ingrediente</th><th>Unid.</th><th class="num">Embalagem</th><th class="num">Preço (€)</th>
+        <tr><th></th><th>Ingrediente</th><th>Unid.</th><th class="num">Embalagem</th><th class="num">Preço (€)</th>
             <th class="num">Referência</th><th>Continente</th><th></th></tr>
       </thead>
-      <tbody>
+      <tbody {{ corpo_ordem('ingredientes') }}>
         {% for i in ingredientes %}
           {% set f = 'ing-' ~ i.id %}
-          <tr>
+          <tr data-id="{{ i.id }}">
+            {{ pega() }}
             <td data-rotulo="Nome" class="com-estado">
               <input name="nome" form="{{ f }}" value="{{ i.nome }}" required aria-label="Nome" style="min-width: 9rem">
             </td>
@@ -122,7 +124,7 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="7" class="vazio">Ainda não há ingredientes.</td></tr>
+          <tr><td colspan="8" class="vazio">Ainda não há ingredientes.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -138,13 +140,15 @@
     <button type="submit">Adicionar extra</button>
   </form>
   {% if extras %}
-    <div class="tabela" style="margin-top: 1rem">
+    <div style="margin-top: 1rem">{{ barra_ordem('extras_bolo', extras, 'extras') }}</div>
+    <div class="tabela">
       <table class="responsiva esquerda">
-        <thead><tr><th>Extra</th><th>Preço (€)</th><th></th></tr></thead>
-        <tbody>
+        <thead><tr><th></th><th>Extra</th><th>Preço (€)</th><th></th></tr></thead>
+        <tbody {{ corpo_ordem('extras_bolo') }}>
           {% for e in extras %}
             {% set f = 'extra-' ~ e.id %}
-            <tr>
+            <tr data-id="{{ e.id }}">
+              {{ pega() }}
               <td data-rotulo="Nome"><input name="nome" form="{{ f }}" value="{{ e.nome }}" required aria-label="Nome" style="min-width: 12rem"></td>
               <td data-rotulo="Preço (€)">
                 <input type="number" name="preco" form="{{ f }}" value="{{ '%g'|format(e.preco) }}" step="0.01" min="0" style="width: 6rem" aria-label="Preço por unidade">

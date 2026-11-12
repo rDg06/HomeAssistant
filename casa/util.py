@@ -31,6 +31,12 @@ def sem_acentos(texto):
     return "".join(c for c in normal if not unicodedata.combining(c))
 
 
+def comparar_pt(a, b):
+    """Collation PT do SQLite: ordem alfabética sem distinguir maiúsculas nem acentos ("Água" ao pé de "Açúcar")."""
+    ka, kb = (sem_acentos(a or ""), a or ""), (sem_acentos(b or ""), b or "")
+    return (ka > kb) - (ka < kb)
+
+
 def data_valida(texto):
     try:
         return date.fromisoformat(texto or "").isoformat()

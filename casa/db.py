@@ -3,6 +3,8 @@ from pathlib import Path
 
 from flask import current_app, g
 
+from .util import comparar_pt
+
 SCHEMA = Path(__file__).with_name("schema.sql")
 
 # Alterações à base de dados depois da versão 1, aplicadas por ordem a bases de dados já existentes.
@@ -109,6 +111,13 @@ MIGRACOES = {
         -- [{nome, qtd, preco_unit, custo_unit}]. Nas vendas de uma só peça fica vazio.
         ALTER TABLE vendas ADD COLUMN itens TEXT;
     """,
+    10: """
+        -- Ordem escolhida à mão nas listas de configuração (vazia = ordem alfabética).
+        ALTER TABLE categorias ADD COLUMN ordem INTEGER;
+        ALTER TABLE filamentos ADD COLUMN ordem INTEGER;
+        ALTER TABLE ingredientes ADD COLUMN ordem INTEGER;
+        ALTER TABLE extras_bolo ADD COLUMN ordem INTEGER;
+    """,
 }
 
 
@@ -117,6 +126,7 @@ def get_db():
         g.db = sqlite3.connect(current_app.config["DATABASE"])
         g.db.row_factory = sqlite3.Row
         g.db.execute("PRAGMA foreign_keys = ON")
+        g.db.create_collation("PT", comparar_pt)  # ordem alfabética sem distinguir maiúsculas nem acentos
     return g.db
 
 

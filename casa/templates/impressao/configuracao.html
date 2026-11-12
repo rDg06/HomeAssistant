@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import ajuda %}
+{% from "_macros.html" import ajuda, barra_ordem, corpo_ordem, pega %}
 {% block titulo %}Configuração 3D{% endblock %}
 {% block conteudo %}
 {% include "impressao/_subnav.html" %}
@@ -33,12 +33,14 @@
     {% for m in ['PLA', 'PLA+', 'PETG', 'ABS', 'ASA', 'TPU', 'Nylon', 'Resina'] %}<option value="{{ m }}">{% endfor %}
   </datalist>
 
-  <div class="tabela" style="margin-top: 1rem">
+  <div style="margin-top: 1rem">{{ barra_ordem('filamentos', filamentos, 'filamentos') }}</div>
+  <div class="tabela">
     <table class="responsiva">
-      <thead><tr><th>Nome</th><th>Material</th><th class="num">€/kg</th><th class="num">Peças</th><th></th></tr></thead>
-      <tbody>
+      <thead><tr><th></th><th>Nome</th><th>Material</th><th class="num">€/kg</th><th class="num">Peças</th><th></th></tr></thead>
+      <tbody {{ corpo_ordem('filamentos') }}>
         {% for f in filamentos %}
-          <tr>
+          <tr data-id="{{ f.id }}">
+            {{ pega() }}
             <td data-rotulo="Nome"><input name="nome" form="fil-{{ f.id }}" value="{{ f.nome }}" required aria-label="Nome"></td>
             <td data-rotulo="Material"><input name="material" form="fil-{{ f.id }}" value="{{ f.material }}" list="materiais" style="max-width: 7rem" aria-label="Material"></td>
             <td data-rotulo="€/kg"><input type="number" name="preco_kg" form="fil-{{ f.id }}" value="{{ '%g'|format(f.preco_kg) }}" step="any" min="0" style="max-width: 6rem; margin-left: auto; display: block" aria-label="Preço por kg"></td>
@@ -57,7 +59,7 @@
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="5" class="vazio">Ainda não há filamentos.</td></tr>
+          <tr><td colspan="6" class="vazio">Ainda não há filamentos.</td></tr>
         {% endfor %}
       </tbody>
     </table>

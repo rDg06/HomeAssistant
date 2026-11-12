@@ -23,3 +23,24 @@
         onclick="event.preventDefault()">?</span>
 {%- endmacro %}
 
+
+{# Listas que se podem reordenar (ver ordem.py e base.html): por defeito alfabéticas; arrastar ⠿ muda a ordem. #}
+{% macro barra_ordem(tabela, lista, ancora='') -%}
+  {% set propria = lista|selectattr('ordem')|list|length > 0 %}
+  <div class="barra-ordem" data-barra-ordem="{{ tabela }}">
+    <span class="muted pequeno" data-texto-ordem>{{ 'Pela tua ordem' if propria else 'Por ordem alfabética' }} · arrasta ⠿ para mudar</span>
+    <form method="post" action="{{ url_for('ordem.repor', tabela=tabela) }}" {{ 'hidden' if not propria }}>
+      <input type="hidden" name="voltar" value="{{ request.full_path.rstrip('?') }}{{ '#' ~ ancora if ancora }}">
+      <button class="secundario pequeno" title="Volta a pôr a lista por ordem alfabética">Repor A–Z</button>
+    </form>
+  </div>
+{%- endmacro %}
+
+{% macro corpo_ordem(tabela) -%}
+  data-ordem="{{ url_for('ordem.guardar', tabela=tabela) }}" data-tabela="{{ tabela }}"
+{%- endmacro %}
+
+{% macro pega() -%}
+  <td class="pega"><button type="button" class="pega-botao" title="Arrasta para mudar a ordem"
+      aria-label="Mudar a ordem (arrasta, ou usa as setas para cima e para baixo)">⠿</button></td>
+{%- endmacro %}

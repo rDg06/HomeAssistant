@@ -4,6 +4,7 @@ from datetime import date
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
+from . import ordem
 from .db import get_db
 from .util import data_valida, existe, hoje_mes, mes_valido, parse_num
 
@@ -93,7 +94,7 @@ def resumo_vendas(db, prefixo):
 
 
 def _filamentos(db):
-    return db.execute("SELECT * FROM filamentos ORDER BY material, nome").fetchall()
+    return db.execute(f"SELECT * FROM filamentos ORDER BY {ordem.ordenar()}").fetchall()
 
 
 # Dados da calculadora guardados com cada peça de uma venda, para se poderem editar mais tarde.
@@ -446,7 +447,8 @@ def filamentos():
             flash("Esse filamento já não existe (foi apagado entretanto).", "erro")
     else:
         db.execute(
-            "INSERT INTO filamentos (nome, material, preco_kg) VALUES (?, ?, ?)", (nome, material, preco_kg)
+            "INSERT INTO filamentos (nome, material, preco_kg, ordem) VALUES (?, ?, ?, ?)",
+            (nome, material, preco_kg, ordem.proxima(db, "filamentos")),
         )
         db.commit()
         flash(f"Filamento \"{nome}\" adicionado.", "ok")
@@ -475,8 +477,8 @@ def configuracao():
         flash("Configuração guardada. Os custos das peças foram recalculados.", "ok")
         return redirect(url_for(".configuracao"))
     filamentos = db.execute(
-        """SELECT f.*, COUNT(p.id) AS n_pecas FROM filamentos f
-           LEFT JOIN pecas p ON p.filamento_id = f.id GROUP BY f.id ORDER BY f.material, f.nome"""
+        f"""SELECT f.*, COUNT(p.id) AS n_pecas FROM filamentos f
+            LEFT JOIN pecas p ON p.filamento_id = f.id GROUP BY f.id ORDER BY {ordem.ordenar('f')}"""
     ).fetchall()
     return render_template(
         "impressao/configuracao.html", campos=CONFIG_CAMPOS, cfg=ler_config(db), filamentos=filamentos
