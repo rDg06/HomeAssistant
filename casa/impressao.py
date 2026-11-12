@@ -1,3 +1,4 @@
+import json
 import math
 from datetime import date
 
@@ -95,6 +96,56 @@ def _filamentos(db):
     return db.execute("SELECT * FROM filamentos ORDER BY material, nome").fetchall()
 
 
+def _item(nome, qtd, preco_unit, custo_unit):
+    """Uma peça de uma venda, validada. Dá ValueError/TypeError/OverflowError se os valores não servirem."""
+    item = {
+        "nome": str(nome or "").strip()[:200] or "Impressão 3D",
+        "qtd": min(max(1, int(qtd or 1)), 100000),
+        "preco_unit": float(preco_unit),
+        "custo_unit": float(custo_unit or 0),
+    }
+    if not all(math.isfinite(item[k]) and item[k] >= 0 for k in ("preco_unit", "custo_unit")):
+        raise ValueError("valor inválido")
+    return item
+
+
+def _colunas_venda(itens):
+    """Descrição, quantidade e valores por unidade de uma venda a partir das suas peças."""
+    if len(itens) == 1:
+        i = itens[0]
+        return {"descricao": i["nome"], "quantidade": i["qtd"], "preco_unit": i["preco_unit"],
+                "custo_unit": i["custo_unit"], "itens": None}
+    unidades = sum(i["qtd"] for i in itens)
+    return {
+        "descricao": " + ".join(f"{i['qtd']}× {i['nome']}" for i in itens),
+        "quantidade": unidades,
+        # Médias por unidade: quantidade × preço continua a dar o total certo nos resumos.
+        "preco_unit": sum(i["qtd"] * i["preco_unit"] for i in itens) / unidades,
+        "custo_unit": sum(i["qtd"] * i["custo_unit"] for i in itens) / unidades,
+        "itens": json.dumps(itens, ensure_ascii=False),
+    }
+
+
+def _itens(venda):
+    """As peças de uma venda: a lista guardada ou, numa venda simples, a própria venda."""
+    if venda["itens"]:
+        return json.loads(venda["itens"])
+    return [{"nome": venda["descricao"], "qtd": venda["quantidade"],
+             "preco_unit": venda["preco_unit"], "custo_unit": venda["custo_unit"]}]
+
+
+def _com_pecas(vendas):
+    """Junta às vendas com várias peças a lista delas, com o total e o lucro de cada uma."""
+    lista = []
+    for v in vendas:
+        pecas = json.loads(v["itens"]) if v["itens"] else None
+        for p in pecas or []:
+            p["total"] = p["qtd"] * p["preco_unit"]
+            p["lucro"] = p["qtd"] * (p["preco_unit"] - p["custo_unit"])
+        lista.append(dict(v, pecas=pecas))
+    return lista
+
+
 @bp.route("/")
 def painel():
     db = get_db()
@@ -109,7 +160,7 @@ def painel():
         resumo_mes=resumo_vendas(db, mes),
         resumo_ano=resumo_vendas(db, mes[:4]),
         pecas=pecas_com_custo(db),
-        ultimas=ultimas,
+        ultimas=_com_pecas(ultimas),
     )
 
 
@@ -187,7 +238,7 @@ def vendas():
     return render_template(
         "impressao/vendas.html",
         mes=mes,
-        vendas=lista,
+        vendas=_com_pecas(lista),
         resumo=resumo_vendas(db, mes),
         pecas=pecas_com_custo(db),
         peca_escolhida=request.args.get("peca", type=int),
@@ -241,36 +292,68 @@ def nova_venda():
 
 @bp.post("/vendas/orcamento")
 def registar_orcamento():
-    """Regista como vendas os pedidos do orçamento da calculadora (enviados em JSON)."""
-    itens = request.get_json(silent=True)
-    if not isinstance(itens, list) or not itens:
+    """Regista os pedidos do orçamento da calculadora (enviados em JSON) como uma só venda."""
+    pedidos = request.get_json(silent=True)
+    if not isinstance(pedidos, list) or not pedidos or not all(isinstance(p, dict) for p in pedidos):
+        abort(400)
+    try:
+        itens = [_item(p.get("nome"), p.get("qtd"), p["preco_unit"], p.get("custo_unit")) for p in pedidos]
+    except (KeyError, TypeError, ValueError, OverflowError):
         abort(400)
     db = get_db()
-    hoje = date.today().isoformat()
-    for item in itens:
-        if not isinstance(item, dict):
-            abort(400)
-        try:
-            linha = (
-                hoje,
-                str(item.get("nome") or "Impressão 3D")[:200],
-                min(max(1, int(item.get("qtd") or 1)), 100000),
-                float(item["preco_unit"]),
-                float(item.get("custo_unit") or 0),
-                str(item.get("cliente") or "")[:200],
-            )
-        except (KeyError, TypeError, ValueError, OverflowError):
-            abort(400)
-        if not all(math.isfinite(v) and v >= 0 for v in linha[3:5]):
-            abort(400)
-        db.execute(
-            """INSERT INTO vendas (data, descricao, quantidade, preco_unit, custo_unit, cliente)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            linha,
-        )
+    db.execute(
+        """INSERT INTO vendas (data, descricao, quantidade, preco_unit, custo_unit, itens, cliente)
+           VALUES (:data, :descricao, :quantidade, :preco_unit, :custo_unit, :itens, :cliente)""",
+        dict(_colunas_venda(itens), data=date.today().isoformat(),
+             cliente=str(pedidos[0].get("cliente") or "").strip()[:200]),
+    )
     db.commit()
-    flash(f"{len(itens)} pedido(s) registado(s) como venda.", "ok")
+    flash("Orçamento registado como venda." if len(itens) == 1
+          else f"Orçamento registado como uma venda com {len(itens)} peças.", "ok")
     return {"ok": True, "url": url_for(".vendas")}
+
+
+@bp.route("/vendas/<int:id>/editar", methods=["GET", "POST"])
+def editar_venda(id):
+    db = get_db()
+    venda = db.execute("SELECT * FROM vendas WHERE id = ?", (id,)).fetchone()
+    if venda is None:
+        abort(404)
+    if request.method == "POST":
+        f = request.form
+        itens = []
+        try:
+            for nome, qtd, preco, custo in zip(f.getlist("nome"), f.getlist("qtd"),
+                                               f.getlist("preco_unit"), f.getlist("custo_unit")):
+                if not nome.strip() and not preco.strip():
+                    continue  # linha deixada em branco
+                itens.append(_item(nome, parse_num(qtd, 1), parse_num(preco, None), parse_num(custo)))
+        except (TypeError, ValueError, OverflowError):
+            itens = None
+        if not itens:
+            flash("Cada peça precisa de nome e de um preço válido.", "erro")
+            return redirect(url_for(".editar_venda", id=id))
+        data_venda = data_valida(f.get("data")) or venda["data"]
+        db.execute(
+            """UPDATE vendas SET data = :data, peca_id = :peca_id, descricao = :descricao, quantidade = :quantidade,
+                   preco_unit = :preco_unit, custo_unit = :custo_unit, itens = :itens,
+                   outros_custos = :outros_custos, cliente = :cliente, notas = :notas
+               WHERE id = :id""",
+            dict(
+                _colunas_venda(itens),
+                id=id,
+                data=data_venda,
+                # A ligação à peça guardada só faz sentido numa venda de uma peça.
+                peca_id=venda["peca_id"] if len(itens) == 1 else None,
+                outros_custos=max(0.0, parse_num(f.get("outros_custos"))),
+                cliente=f.get("cliente", "").strip()[:200],
+                notas=f.get("notas", "").strip(),
+            ),
+        )
+        db.commit()
+        flash("Venda atualizada.", "ok")
+        return redirect(url_for(".vendas", mes=data_venda[:7]))
+    return render_template("impressao/venda.html", venda=venda, itens=_itens(venda))
 
 
 @bp.post("/vendas/<int:id>/apagar")

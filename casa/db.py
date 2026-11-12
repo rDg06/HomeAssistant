@@ -104,6 +104,11 @@ MIGRACOES = {
         INSERT INTO extras_bolo (nome, preco) VALUES
             ('Caixa', 0), ('Base de cartão', 0), ('Velas', 0), ('Topo de bolo', 0);
     """,
+    9: """
+        -- Vendas com várias peças (um orçamento registado de uma vez): a lista das peças em JSON
+        -- [{nome, qtd, preco_unit, custo_unit}]. Nas vendas de uma só peça fica vazio.
+        ALTER TABLE vendas ADD COLUMN itens TEXT;
+    """,
 }
 
 

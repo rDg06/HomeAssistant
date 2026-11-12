@@ -19,7 +19,7 @@
       <h2>Esta impressão</h2>
       <div class="campos">
         <label class="largo">Nome da peça
-          <input name="nome" value="{{ peca.nome if peca }}" placeholder="ex.: suporte de telemóvel">
+          <input name="nome" value="{{ peca.nome if peca }}" placeholder="ex.: suporte de telemóvel" autocomplete="off">
         </label>
         <label class="largo"><span>Filamento {{ ajuda('O preço por kg de cada filamento define-se na Configuração.') }}</span>
           <select name="filamento_id">
@@ -70,6 +70,7 @@
         </div>
         <div class="acoes" style="justify-content: flex-start; margin-top: .9rem">
           <button type="button" class="claro" id="adicionar">Adicionar ao orçamento</button>
+          <button type="button" class="claro-sec" id="cancelar-edicao" hidden>Cancelar edição</button>
           <button type="submit" class="claro-sec">{{ 'Guardar alterações' if peca else 'Guardar peça' }}</button>
         </div>
       </div>
@@ -97,12 +98,12 @@
       <section class="cartao">
         <h2>Orçamento</h2>
         <div id="orcamento"></div>
-        <label style="margin-top: .75rem">Cliente (opcional, para registar como vendas)
+        <label style="margin-top: .75rem">Cliente (opcional, para registar a venda)
           <input id="cliente" placeholder="ex.: Ana Silva" autocomplete="off">
         </label>
         <div class="acoes" style="justify-content: flex-start; margin-top: .75rem; flex-wrap: wrap">
           <button type="button" class="secundario pequeno" id="copiar-lista">Copiar lista</button>
-          <button type="button" class="secundario pequeno" id="registar">Registar como vendas</button>
+          <button type="button" class="secundario pequeno" id="registar" title="Todos os pedidos ficam numa só venda">Registar como venda</button>
           <button type="button" class="perigo pequeno" id="esvaziar">Esvaziar</button>
         </div>
       </section>
@@ -116,9 +117,12 @@
   const CFG = {{ cfg|tojson }};
   const URL_ORCAMENTO = {{ url_for('.registar_orcamento')|tojson }};
   const CHAVE = 'casa-orcamento-3d';
+  // Campos guardados com cada pedido, para o poder voltar a pôr na calculadora e editar.
+  const CAMPOS = ['nome', 'filamento_id', 'gramas', 'qtd', 'horas_h', 'horas_m', 'trabalho_min', 'custos_extra', 'preco_venda'];
   const form = document.getElementById('calc');
   const v = nome => Math.max(0, lerNum(form.elements[nome].value));
   let atual = null;
+  let editando = null;  // índice do pedido do orçamento que está na calculadora
 
   function calcular() {
     const opcao = form.elements.filamento_id && form.elements.filamento_id.selectedOptions[0];
@@ -155,6 +159,7 @@
       custo_unit: Math.round((r.producao + r.extra) * 100) / 100,
       total: r.final,
       lucro: r.lucro_total,
+      campos: Object.fromEntries(CAMPOS.filter(c => form.elements[c]).map(c => [c, form.elements[c].value])),
     };
   }
 
@@ -195,6 +200,7 @@
       const tabela = document.createElement('table');
       orcamento.forEach((item, i) => {
         const tr = tabela.insertRow();
+        if (i === editando) tr.className = 'a-editar';
         const nome = tr.insertCell();
         nome.textContent = item.nome;
         if (item.qtd > 1) nome.insertAdjacentHTML('beforeend', ` <span class="muted pequeno">(${item.qtd} un.)</span>`);
@@ -204,9 +210,10 @@
         const total = tr.insertCell();
         total.className = 'num';
         total.textContent = fmtEur(item.total);
-        const rem = tr.insertCell();
-        rem.style.width = '2.5rem';
-        rem.innerHTML = `<button type="button" class="perigo pequeno" data-i="${i}" title="Remover">✕</button>`;
+        const botoes = tr.insertCell();
+        botoes.innerHTML = '<div class="acoes">'
+          + (item.campos ? `<button type="button" class="secundario pequeno" data-editar="${i}" title="Pôr na calculadora para mudar">✎</button>` : '')
+          + `<button type="button" class="perigo pequeno" data-i="${i}" title="Remover">✕</button></div>`;
       });
       const soma = k => orcamento.reduce((a, item) => a + item[k], 0);
       const tr = tabela.insertRow();
@@ -218,26 +225,67 @@
       caixa.append(tabela);
     }
     for (const id of ['copiar-lista', 'registar', 'esvaziar']) document.getElementById(id).disabled = !orcamento.length;
+    document.getElementById('adicionar').textContent = textoAdicionar();
+    document.getElementById('cancelar-edicao').hidden = editando === null;
   }
+
+  document.getElementById('cancelar-edicao').addEventListener('click', () => {
+    editando = null;
+    mostrarOrcamento();
+  });
+
+  const textoAdicionar = () => (editando === null ? 'Adicionar ao orçamento' : 'Atualizar pedido');
 
   document.getElementById('adicionar').addEventListener('click', e => {
     const botao = e.currentTarget;
     if (v('gramas') <= 0 && v('horas_h') + v('horas_m') <= 0) {
       botao.textContent = 'Preenche o peso ou o tempo';
-      setTimeout(() => (botao.textContent = 'Adicionar ao orçamento'), 1800);
+      setTimeout(() => (botao.textContent = textoAdicionar()), 1800);
       return;
     }
-    orcamento.push(atual);
+    const aviso = editando === null ? 'Adicionado' : 'Atualizado';
+    if (editando === null) orcamento.push(atual);
+    else orcamento[editando] = atual;
+    editando = null;
     guardarOrcamento();
+    if (form.elements.id.value) {
+      // Estava aberta uma peça guardada: passa para a calculadora vazia (o orçamento fica guardado).
+      location.href = {{ url_for('.calculadora')|tojson }};
+      return;
+    }
+    limparCalculadora();
     mostrarOrcamento();
-    botao.textContent = 'Adicionado';
-    setTimeout(() => (botao.textContent = 'Adicionar ao orçamento'), 1200);
+    botao.textContent = aviso;
+    setTimeout(() => (botao.textContent = textoAdicionar()), 1200);
   });
 
+  // Depois de juntar uma peça ao orçamento, "Esta impressão" fica vazia para a próxima (o cliente mantém-se).
+  function limparCalculadora() {
+    const cliente = document.getElementById('cliente').value;
+    form.reset();
+    document.getElementById('cliente').value = cliente;
+    calcular();
+    form.elements.nome.focus();
+  }
+
   document.getElementById('orcamento').addEventListener('click', e => {
+    const editar = e.target.closest('[data-editar]');
+    if (editar) {
+      // Volta a pôr o pedido na calculadora; "Atualizar pedido" grava as mudanças no mesmo sítio.
+      editando = Number(editar.dataset.editar);
+      const campos = orcamento[editando].campos;
+      for (const c of CAMPOS) if (form.elements[c] && c in campos) form.elements[c].value = campos[c];
+      calcular();
+      mostrarOrcamento();
+      form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     const botao = e.target.closest('[data-i]');
     if (!botao) return;
-    orcamento.splice(Number(botao.dataset.i), 1);
+    const i = Number(botao.dataset.i);
+    orcamento.splice(i, 1);
+    if (editando === i) editando = null;
+    else if (editando !== null && editando > i) editando--;
     guardarOrcamento();
     mostrarOrcamento();
   });
@@ -245,6 +293,7 @@
   document.getElementById('esvaziar').addEventListener('click', e => {
     pedirConfirmacao(e.currentTarget, 'Esvaziar o orçamento?', () => {
       orcamento = [];
+      editando = null;
       guardarOrcamento();
       mostrarOrcamento();
     });
@@ -258,7 +307,7 @@
 
   document.getElementById('registar').addEventListener('click', e => {
     const botao = e.currentTarget;
-    pedirConfirmacao(botao, 'Registar o orçamento como vendas de hoje?', async () => {
+    pedirConfirmacao(botao, 'Registar o orçamento como uma venda de hoje?', async () => {
       const cliente = document.getElementById('cliente').value.trim();
       const resp = await fetch(URL_ORCAMENTO, {
         method: 'POST',
@@ -267,10 +316,11 @@
       });
       if (!resp.ok) {
         botao.textContent = 'Erro ao registar';
-        setTimeout(() => (botao.textContent = 'Registar como vendas'), 2000);
+        setTimeout(() => (botao.textContent = 'Registar como venda'), 2000);
         return;
       }
       orcamento = [];
+      editando = null;
       guardarOrcamento();
       location.href = (await resp.json()).url;
     });

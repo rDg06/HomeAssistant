@@ -75,12 +75,26 @@
       <table>
         <tbody>
           {% for v in ultimas %}
-            <tr>
+            <tr {{ 'class="com-pecas"'|safe if v.pecas }}>
               <td>{{ v.data|data_curta }}</td>
-              <td>{{ v.quantidade }}× {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}</td>
+              <td>
+                {% if v.pecas %}
+                  {{ v.cliente or 'Orçamento' }} <span class="muted">· {{ v.pecas|length }} peças</span>
+                {% else %}
+                  {{ v.quantidade }}× {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}
+                {% endif %}
+              </td>
               <td class="num">{{ (v.quantidade * v.preco_unit)|eur }}</td>
               <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}">{{ v.lucro|eur }}</td>
             </tr>
+            {% for p in v.pecas or [] %}
+              <tr class="sub-venda {{ 'ultima' if loop.last }}">
+                <td></td>
+                <td>{{ p.qtd }}× {{ p.nome }}</td>
+                <td class="num">{{ p.total|eur }}</td>
+                <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}">{{ p.lucro|eur }}</td>
+              </tr>
+            {% endfor %}
           {% endfor %}
         </tbody>
       </table>

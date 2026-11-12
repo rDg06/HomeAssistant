@@ -171,6 +171,9 @@ input[type=checkbox] { width: auto; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 textarea { resize: vertical; }
 
+/* O atributo hidden ganha sempre (senão o display dos botões mostrava-os na mesma) */
+[hidden] { display: none !important; }
+
 button, .botao {
   font: inherit;
   background: var(--accent);
@@ -286,6 +289,38 @@ tr.inativa td { opacity: .55; }
   table.linhas-orc td { display: block; width: auto !important; border: 0; padding: 0; }
   table.linhas-orc td:first-child { grid-column: 1 / -1; }
   table.linhas-orc select, table.linhas-orc input { width: 100%; }
+}
+/* Venda com várias peças: a lista das peças dentro da mesma célula */
+/* Venda com várias peças: uma linha por peça logo por baixo, com o seu preço e lucro nas mesmas colunas */
+tr.com-pecas td, tr.sub-venda td { border-bottom: 0; }
+tr.sub-venda.ultima td { border-bottom: 1px solid var(--border); }
+tr.sub-venda td { padding-top: .1rem; padding-bottom: .1rem; font-size: .9rem; }
+tr.sub-venda.ultima td { padding-bottom: .5rem; }
+tr.sub-venda td:nth-child(2) { padding-left: 1.2rem; color: var(--muted); }
+.so-telemovel { display: none; }
+@media (max-width: 640px) {
+  table.responsiva tr.com-pecas { border-bottom: 0; padding-bottom: .2rem; }
+  table.responsiva tr.sub-venda { display: grid; grid-template-columns: auto 1fr auto auto; gap: .6rem; align-items: baseline;
+                                  padding: .1rem 0 .1rem .6rem; border-bottom: 0; }
+  table.responsiva tr.sub-venda.ultima { border-bottom: 1px solid var(--border); padding-bottom: .6rem; }
+  table.responsiva tr.sub-venda td { display: block; width: auto; padding: 0; border: 0; }
+  table.responsiva tr.sub-venda td:nth-child(2) { padding-left: 0; }
+  table.responsiva tr.sub-venda td:nth-child(3) { order: -1; }
+  .so-computador { display: none !important; }
+  .so-telemovel { display: inline; }
+}
+.resumo-venda { text-align: right; margin: .75rem 0 .5rem; }
+/* Pedido do orçamento 3D que está na calculadora a ser editado */
+tr.a-editar td { background: var(--accent-soft); }
+/* Editar venda no telemóvel: o nome da peça numa linha, quantidade, preço e custo por baixo */
+@media (max-width: 640px) {
+  table.linhas-venda thead, table.linhas-venda .total-linha { display: none; }
+  table.linhas-venda tr { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: .35rem; align-items: end;
+                          padding: .5rem 0; border-bottom: 1px solid var(--border); }
+  table.linhas-venda td { display: block; width: auto !important; border: 0; padding: 0; }
+  table.linhas-venda td:first-child { grid-column: 1 / -1; }
+  table.linhas-venda td[data-rotulo]::before { content: attr(data-rotulo); display: block; font-size: .75rem; color: var(--muted); }
+  table.linhas-venda input { width: 100%; min-width: 0 !important; }
 }
 /* Tabela com o conteúdo das colunas à esquerda e os botões à direita (só no computador; no telemóvel são cartões) */
 @media (min-width: 641px) {

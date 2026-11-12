@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block titulo %}Editar venda{% endblock %}
+
+{% macro linha(item=none) %}
+  <tr>
+    <td><input name="nome" value="{{ item.nome if item }}" placeholder="ex.: suporte de comando" aria-label="Peça" style="min-width: 10rem"></td>
+    <td style="width: 5rem" data-rotulo="Qtd."><input type="number" name="qtd" value="{{ item.qtd if item else 1 }}" min="1" step="1" aria-label="Quantidade"></td>
+    <td style="width: 7rem" data-rotulo="Preço un."><input type="number" name="preco_unit" value="{{ '%.2f'|format(item.preco_unit) if item }}" step="0.01" min="0" inputmode="decimal" aria-label="Preço por unidade"></td>
+    <td style="width: 7rem" data-rotulo="Custo un."><input type="number" name="custo_unit" value="{{ '%.2f'|format(item.custo_unit) if item }}" step="0.01" min="0" inputmode="decimal" aria-label="Custo por unidade"></td>
+    <td class="num total-linha"></td>
+    <td style="width: 2.5rem"><button type="button" class="perigo pequeno remover" title="Remover">✕</button></td>
+  </tr>
+{% endmacro %}
+
+{% block conteudo %}
+{% include "impressao/_subnav.html" %}
+<h1>Editar venda</h1>
+
+<form method="post" id="venda">
+  <section class="cartao">
+    <div class="campos">
+      <label>Data<input type="date" name="data" value="{{ venda.data }}" required></label>
+      <label>Cliente<input name="cliente" value="{{ venda.cliente }}" placeholder="opcional"></label>
+      <label>Portes / taxas (€)<input type="number" name="outros_custos" value="{{ '%g'|format(venda.outros_custos) if venda.outros_custos }}" step="0.01" min="0" inputmode="decimal" placeholder="0"></label>
+      <label class="largo">Notas<input name="notas" value="{{ venda.notas }}" placeholder="opcional"></label>
+    </div>
+  </section>
+
+  <section class="cartao">
+    <h2>Peças</h2>
+    <div class="tabela">
+      <table class="linhas-venda">
+        <thead><tr><th>Peça</th><th>Qtd.</th><th>Preço un. (€)</th><th>Custo un. (€)</th><th class="num">Total</th><th></th></tr></thead>
+        <tbody id="linhas">
+          {% for item in itens %}{{ linha(item) }}{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="resumo-venda">Total <b id="total"></b> · Lucro <b id="lucro"></b></p>
+    <p style="margin-bottom: 0"><button type="button" class="secundario pequeno" id="adicionar">+ Peça</button></p>
+  </section>
+
+  <div class="acoes" style="justify-content: flex-start">
+    <button type="submit">Guardar venda</button>
+    <a class="botao secundario" href="{{ url_for('.vendas', mes=venda.data[:7]) }}">Cancelar</a>
+  </div>
+</form>
+
+<template id="linha-modelo">{{ linha() }}</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const form = document.getElementById('venda');
+  const corpo = document.getElementById('linhas');
+
+  function atualizar() {
+    let total = 0, custo = 0;
+    for (const tr of corpo.querySelectorAll('tr')) {
+      const n = name => lerNum(tr.querySelector(`[name=${name}]`).value);
+      const qtd = Math.max(1, Math.round(n('qtd')) || 1);
+      tr.querySelector('.total-linha').textContent = fmtEur(qtd * n('preco_unit'));
+      total += qtd * n('preco_unit');
+      custo += qtd * n('custo_unit');
+    }
+    const lucro = total - custo - lerNum(form.elements.outros_custos.value);
+    document.getElementById('total').textContent = fmtEur(total);
+    const celula = document.getElementById('lucro');
+    celula.textContent = fmtEur(lucro);
+    celula.className = lucro < 0 ? 'negativo' : 'positivo';
+  }
+
+  document.getElementById('adicionar').addEventListener('click', () => {
+    corpo.append(document.getElementById('linha-modelo').content.cloneNode(true));
+    corpo.lastElementChild.querySelector('input').focus();
+    atualizar();
+  });
+  corpo.addEventListener('click', e => {
+    if (!e.target.closest('.remover')) return;
+    if (corpo.children.length > 1) e.target.closest('tr').remove();
+    atualizar();
+  });
+  form.addEventListener('input', atualizar);
+  atualizar();
+</script>
+{% endblock %}

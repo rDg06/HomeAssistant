@@ -54,24 +54,41 @@
         </thead>
         <tbody>
           {% for v in vendas %}
-            <tr>
+            <tr {{ 'class="com-pecas"'|safe if v.pecas }}>
               <td data-rotulo="Data">{{ v.data|data_curta }}</td>
               <td class="titulo">
-                {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}
+                {% if v.pecas %}
+                  {% if v.cliente %}{{ v.cliente }}{% else %}Orçamento{% endif %}
+                  <span class="muted pequeno">· {{ v.pecas|length }} peças</span>
+                {% else %}
+                  {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}
+                {% endif %}
                 {% if v.notas %}<div class="muted pequeno">{{ v.notas }}</div>{% endif %}
               </td>
               <td class="num" data-rotulo="Quantidade">{{ v.quantidade }}</td>
-              <td class="num" data-rotulo="Preço un.">{{ v.preco_unit|eur }}</td>
+              <td class="num" data-rotulo="Preço un.">{{ '—' if v.pecas else v.preco_unit|eur }}</td>
               <td class="num" data-rotulo="Total">{{ (v.quantidade * v.preco_unit)|eur }}</td>
               <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}" data-rotulo="Lucro">{{ v.lucro|eur }}</td>
               <td>
                 <div class="acoes">
+                  <a class="botao secundario pequeno" href="{{ url_for('.editar_venda', id=v.id) }}">Editar</a>
                   <form method="post" action="{{ url_for('.apagar_venda', id=v.id) }}" data-confirmar="Apagar esta venda?">
                     <button class="perigo pequeno">Apagar</button>
                   </form>
                 </div>
               </td>
             </tr>
+            {% for p in v.pecas or [] %}
+              <tr class="sub-venda {{ 'ultima' if loop.last }}">
+                <td class="so-computador"></td>
+                <td class="nome-peca">{{ p.nome }}</td>
+                <td class="num">{{ p.qtd }}<span class="so-telemovel">×</span></td>
+                <td class="num so-computador">{{ p.preco_unit|eur }}</td>
+                <td class="num">{{ p.total|eur }}</td>
+                <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}"><span class="so-telemovel muted">lucro </span>{{ p.lucro|eur }}</td>
+                <td class="so-computador"></td>
+              </tr>
+            {% endfor %}
           {% endfor %}
         </tbody>
       </table>
