@@ -5,19 +5,6 @@
 {% include "impressao/_subnav.html" %}
 <h1>Configuração</h1>
 
-<section class="cartao">
-  <h2>Valores fixos</h2>
-  <form method="post" class="campos" style="grid-template-columns: repeat(auto-fill, minmax(230px, 1fr))">
-    {% for chave, rotulo, unidade, texto in campos %}
-      <label><span>{{ rotulo }} ({{ unidade }}) {{ ajuda(texto) }}</span>
-        <input type="number" name="{{ chave }}" value="{{ '%g'|format(cfg[chave]) }}" step="any"
-               min="{{ 1 if chave == 'vida_util_horas' else 0 }}" inputmode="decimal" required>
-      </label>
-    {% endfor %}
-    <div class="largo"><button type="submit">Guardar</button></div>
-  </form>
-</section>
-
 <section class="cartao" id="filamentos">
   <h2>Filamentos</h2>
   <form method="post" action="{{ url_for('.filamentos') }}" class="campos">
@@ -64,6 +51,19 @@
       </tbody>
     </table>
   </div>
+</section>
+
+<section class="cartao">
+  <h2>Valores fixos</h2>
+  <form method="post" class="campos" style="grid-template-columns: repeat(auto-fill, minmax(230px, 1fr))">
+    {% for chave, rotulo, unidade, texto in campos %}
+      <label><span>{{ rotulo }} ({{ unidade }}) {{ ajuda(texto) }}</span>
+        <input type="number" name="{{ chave }}" value="{{ '%g'|format(cfg[chave]) }}" step="any"
+               min="{{ 1 if chave == 'vida_util_horas' else 0 }}" inputmode="decimal" required>
+      </label>
+    {% endfor %}
+    <div class="largo"><button type="submit">Guardar</button></div>
+  </form>
 </section>
 
 <section class="cartao">
