@@ -68,6 +68,29 @@ def _fixas_por_lancar(db, mes):
     ).fetchall()
 
 
+def quem_padrao(db):
+    """Quem pagou, já escrito no formulário de um gasto novo (definido nas Configurações; pode-se mudar)."""
+    linha = db.execute("SELECT valor FROM definicoes WHERE chave = 'quem_padrao'").fetchone()
+    return linha[0] if linha else ""
+
+
+def guardar_quem_padrao(db, nome):
+    nome = " ".join((nome or "").split())[:60]
+    if nome:
+        db.execute("INSERT OR REPLACE INTO definicoes (chave, valor) VALUES ('quem_padrao', ?)", (nome,))
+    else:
+        db.execute("DELETE FROM definicoes WHERE chave = 'quem_padrao'")
+    db.commit()
+    return nome
+
+
+def pessoas_sugeridas(db):
+    """Sugestões para o campo "Quem pagou": as pessoas da casa e os nomes já usados noutros gastos."""
+    usados = [r[0] for r in db.execute(
+        "SELECT quem FROM gastos WHERE quem != '' GROUP BY quem ORDER BY MAX(data) DESC LIMIT 20")]
+    return PESSOAS + [n for n in usados if n.casefold() not in {p.casefold() for p in PESSOAS}]
+
+
 def _categorias(db):
     return db.execute(f"SELECT * FROM categorias ORDER BY {ordem.ordenar()}").fetchall()
 
@@ -80,6 +103,7 @@ def _ler_form():
         "categoria_id": existe(get_db(), "categorias", f.get("categoria_id", type=int)),
         "valor": parse_num(f.get("valor"), None),
         "notas": f.get("notas", "").strip(),
+        "quem": " ".join(f.get("quem", "").split())[:60],
     }
     erros = []
     if not dados["data"]:
@@ -141,6 +165,12 @@ def lista():
         (mes,),
     ).fetchall()
     total = total_mes(db, mes)
+    # Quanto pagou cada pessoa neste mês (só os gastos em que se indicou quem pagou).
+    por_quem = db.execute(
+        """SELECT quem, SUM(valor) AS total FROM gastos
+           WHERE substr(data, 1, 7) = ? AND quem != '' GROUP BY lower(quem) ORDER BY total DESC""",
+        (mes,),
+    ).fetchall()
     por_tipo = dict(db.execute(
         "SELECT tipo, SUM(valor) FROM rendimentos WHERE substr(data, 1, 7) = ? GROUP BY tipo", (mes,)
     ).fetchall())
@@ -172,6 +202,9 @@ def lista():
         por_lancar=por_lancar,
         total_por_lancar=sum(f["valor"] for f in por_lancar),
         categorias=_categorias(db),
+        pessoas=pessoas_sugeridas(db),
+        quem_padrao=quem_padrao(db),
+        por_quem=por_quem,
         data_padrao=date.today().isoformat() if mes == hoje_mes() else f"{mes}-01",
     )
 
@@ -185,8 +218,8 @@ def novo():
         return redirect(url_for(".lista", mes=request.form.get("mes")))
     db = get_db()
     db.execute(
-        """INSERT INTO gastos (data, descricao, categoria_id, valor, notas)
-           VALUES (:data, :descricao, :categoria_id, :valor, :notas)""",
+        """INSERT INTO gastos (data, descricao, categoria_id, valor, notas, quem)
+           VALUES (:data, :descricao, :categoria_id, :valor, :notas, :quem)""",
         dados,
     )
     db.commit()
@@ -206,7 +239,7 @@ def editar(id):
             dados["id"] = id
             db.execute(
                 """UPDATE gastos SET data = :data, descricao = :descricao, categoria_id = :categoria_id,
-                   valor = :valor, notas = :notas WHERE id = :id""",
+                   valor = :valor, notas = :notas, quem = :quem WHERE id = :id""",
                 dados,
             )
             db.commit()
@@ -216,7 +249,8 @@ def editar(id):
             flash(erro, "erro")
         # Mantém o que foi escrito nos campos válidos para não se perder.
         gasto = {**dict(gasto), **{k: v for k, v in dados.items() if v not in (None, "")}}
-    return render_template("gastos/editar.html", gasto=gasto, categorias=_categorias(db), primeiro_mes=PRIMEIRO_MES)
+    return render_template("gastos/editar.html", gasto=gasto, categorias=_categorias(db), pessoas=pessoas_sugeridas(db),
+                           primeiro_mes=PRIMEIRO_MES)
 
 
 @bp.post("/<int:id>/apagar")
@@ -239,12 +273,13 @@ def lancar_fixas():
     ano, m = map(int, mes.split("-"))
     ultimo_dia = calendar.monthrange(ano, m)[1]
     por_lancar = _fixas_por_lancar(db, mes)
+    quem = quem_padrao(db)
     for fixa in por_lancar:
         dia = min(max(fixa["dia"], 1), ultimo_dia)  # dia 31 em Fevereiro fica no último dia
         db.execute(
-            """INSERT INTO gastos (data, descricao, categoria_id, valor, fixo, fixa_id, notas)
-               VALUES (?, ?, ?, ?, 1, ?, ?)""",
-            (f"{mes}-{dia:02d}", fixa["descricao"], fixa["categoria_id"], fixa["valor"], fixa["id"], fixa["notas"]),
+            """INSERT INTO gastos (data, descricao, categoria_id, valor, fixo, fixa_id, notas, quem)
+               VALUES (?, ?, ?, ?, 1, ?, ?, ?)""",
+            (f"{mes}-{dia:02d}", fixa["descricao"], fixa["categoria_id"], fixa["valor"], fixa["id"], fixa["notas"], quem),
         )
     db.commit()
     if por_lancar:

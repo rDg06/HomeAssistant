@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import ajuda %}
 {% block titulo %}Configurações{% endblock %}
 {% block conteudo %}
 <h1>Configurações</h1>
@@ -55,6 +56,18 @@
 
   <form method="post" action="{{ url_for('.copia_agora') }}" style="margin-top: 1rem">
     <button type="submit">Fazer cópia agora</button>
+  </form>
+</section>
+
+<section class="cartao" id="gastos">
+  <h2>Gastos</h2>
+  <form method="post" action="{{ url_for('.gastos_padrao') }}" class="campos">
+    <label><span>Quem pagou, por defeito
+      {{ ajuda('Fica já escrito no formulário de cada gasto novo. Podes sempre mudá-lo nesse gasto. Deixa vazio para vir em branco.') }}</span>
+      <input name="quem_padrao" value="{{ quem_padrao }}" list="pessoas-padrao" placeholder="ex.: Rodrigo" autocomplete="off" maxlength="60">
+      <datalist id="pessoas-padrao">{% for p in pessoas %}<option value="{{ p }}">{% endfor %}</datalist>
+    </label>
+    <button type="submit">Guardar</button>
   </form>
 </section>
 

@@ -36,6 +36,9 @@
         <span class="{{ 'negativo' if dif > 0 else 'positivo' }}">{{ '%+.0f'|format(dif) }}%</span> vs {{ nome_mes(anterior) }}
       {% else %}{{ gastos|length }} registo(s){% endif %}
     </div>
+    {% if por_quem %}
+      <div class="extra muted">{% for p in por_quem %}{{ p.quem }} {{ p.total|eur }}{{ ' · ' if not loop.last }}{% endfor %}</div>
+    {% endif %}
   </div>
   <div class="numero">
     {% set saldo = total_rendimentos - total %}
@@ -161,7 +164,7 @@
     <div class="tabela">
       <table class="responsiva">
         <thead>
-          <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th class="num">Valor</th><th></th></tr>
+          <tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Quem pagou</th><th class="num">Valor</th><th></th></tr>
         </thead>
         <tbody>
           {% for gasto in gastos %}
@@ -173,6 +176,7 @@
                 {% if gasto.notas %}<div class="muted pequeno">{{ gasto.notas }}</div>{% endif %}
               </td>
               <td data-rotulo="Categoria">{{ gasto.categoria or '—' }}</td>
+              <td data-rotulo="Quem pagou">{{ gasto.quem or '—' }}</td>
               <td class="num" data-rotulo="Valor">{{ gasto.valor|eur }}</td>
               <td>
                 <div class="acoes">

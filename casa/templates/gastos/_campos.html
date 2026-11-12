@@ -15,6 +15,10 @@
 <label>Valor (€)
   <input type="number" name="valor" step="0.01" min="0.01" inputmode="decimal" value="{{ gasto.valor if gasto }}" required>
 </label>
+<label>Quem pagou
+  <input name="quem" value="{{ gasto.quem if gasto else quem_padrao }}" list="pessoas" placeholder="ex.: {{ pessoas[0] if pessoas else 'Rodrigo' }}" autocomplete="off" maxlength="60">
+  <datalist id="pessoas">{% for p in pessoas %}<option value="{{ p }}">{% endfor %}</datalist>
+</label>
 <label>Notas
   <input name="notas" value="{{ gasto.notas if gasto }}" placeholder="opcional">
 </label>

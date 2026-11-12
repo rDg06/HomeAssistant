@@ -4,7 +4,8 @@ from datetime import datetime
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
-from . import auth, backup
+from . import auth, backup, gastos
+from .db import get_db
 
 bp = Blueprint("configuracoes", __name__, url_prefix="/configuracoes")
 
@@ -25,6 +26,8 @@ def pagina():
         dias=backup.DIAS_ENTRE_COPIAS,
         manter=backup.COPIAS_A_MANTER,
         minimo=auth.MINIMO,
+        quem_padrao=gastos.quem_padrao(get_db()),
+        pessoas=gastos.pessoas_sugeridas(get_db()),
         agora=datetime.now(),
     )
 
@@ -81,3 +84,12 @@ def copia_agora():
     if falhas:
         flash("Não foi possível fazer a cópia em: " + "; ".join(falhas), "erro")
     return _voltar()
+
+
+@bp.post("/gastos")
+def gastos_padrao():
+    """Quem pagou, por defeito, nos gastos novos (fica escrito no formulário e pode-se mudar em cada gasto)."""
+    nome = gastos.guardar_quem_padrao(get_db(), request.form.get("quem_padrao"))
+    flash(f"Os gastos novos vêm com \"{nome}\" em Quem pagou." if nome
+          else "Os gastos novos vêm com Quem pagou em branco.", "ok")
+    return _voltar("gastos")

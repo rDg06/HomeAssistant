@@ -123,6 +123,10 @@ MIGRACOES = {
         -- com e sem ela. Nas vendas sem os dados da calculadora fica a 0.
         ALTER TABLE vendas ADD COLUMN mao_obra_unit REAL NOT NULL DEFAULT 0;
     """,
+    12: """
+        -- Quem pagou cada gasto (texto livre, ex.: Rodrigo, Carina; vazio = não indicado).
+        ALTER TABLE gastos ADD COLUMN quem TEXT NOT NULL DEFAULT '';
+    """,
 }
 
 
