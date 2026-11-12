@@ -59,7 +59,7 @@
 
   <div class="acoes" style="justify-content: flex-start">
     <button type="submit">Guardar venda</button>
-    <a class="botao secundario" href="{{ url_for('.vendas', mes=venda.data[:7]) }}">Cancelar</a>
+    <a class="botao secundario" href="{{ url_for('.painel', mes=venda.data[:7], _anchor='vendas') }}">Cancelar</a>
   </div>
 </form>
 

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import escolher_mes %}
 {% block titulo %}Impressão 3D{% endblock %}
 {% block conteudo %}
 {% include "impressao/_subnav.html" %}
 
-<div class="cabecalho">
-  <h1>Impressão 3D</h1>
-  <a class="botao" href="{{ url_for('.calculadora') }}">+ Calcular nova peça</a>
+<div class="mes-nav">
+  <h1>Impressão 3D · {{ nome_mes(mes) }}</h1>
+  {{ escolher_mes(mes) }}
 </div>
 
 <div class="numeros">
@@ -13,6 +14,10 @@
     <div class="rotulo">Faturado em {{ nome_mes(mes) }}</div>
     <div class="valor">{{ resumo_mes.faturado|eur }}</div>
     <div class="extra muted">{{ resumo_mes.unidades }} peça(s) vendida(s)</div>
+  </div>
+  <div class="numero">
+    <div class="rotulo">Custos em {{ nome_mes(mes) }}</div>
+    <div class="valor">{{ resumo_mes.custos|eur }}</div>
   </div>
   <div class="numero">
     <div class="rotulo">Lucro em {{ nome_mes(mes) }}</div>
@@ -25,8 +30,69 @@
   </div>
 </div>
 
-<section class="cartao">
-  <h2>Peças guardadas</h2>
+<section class="cartao" id="vendas">
+  <div class="cabecalho" style="margin-bottom: .5rem">
+    <h2 style="margin: 0">Vendas de {{ nome_mes(mes) }}</h2>
+    <a class="botao pequeno" href="{{ url_for('.calculadora') }}" title="Calcula as peças, junta-as ao orçamento e carrega em &quot;Registar como venda&quot;">+ Registar venda</a>
+  </div>
+  {% if vendas %}
+    <div class="tabela">
+      <table class="responsiva">
+        <thead>
+          <tr><th>Data</th><th>Venda</th><th class="num">Qtd.</th><th class="num">Preço un.</th>
+              <th class="num">Total</th><th class="num">Lucro</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for v in vendas %}
+            <tr {{ 'class="com-pecas"'|safe if v.pecas }}>
+              <td data-rotulo="Data">{{ v.data|data_curta }}</td>
+              <td class="titulo">
+                {% if v.pecas %}
+                  {% if v.cliente %}{{ v.cliente }}{% else %}Orçamento{% endif %}
+                  <span class="muted pequeno">· {{ v.pecas|length }} peças</span>
+                {% else %}
+                  {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}
+                {% endif %}
+                {% if v.notas %}<div class="muted pequeno">{{ v.notas }}</div>{% endif %}
+              </td>
+              <td class="num" data-rotulo="Quantidade">{{ v.quantidade }}</td>
+              <td class="num" data-rotulo="Preço un.">{{ '—' if v.pecas else v.preco_unit|eur }}</td>
+              <td class="num" data-rotulo="Total">{{ (v.quantidade * v.preco_unit)|eur }}</td>
+              <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}" data-rotulo="Lucro">{{ v.lucro|eur }}</td>
+              <td>
+                <div class="acoes">
+                  <a class="botao secundario pequeno" href="{{ url_for('.editar_venda', id=v.id) }}">Editar</a>
+                  <form method="post" action="{{ url_for('.apagar_venda', id=v.id) }}" data-confirmar="Apagar esta venda?">
+                    <button class="perigo pequeno">Apagar</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% for p in v.pecas or [] %}
+              <tr class="sub-venda {{ 'ultima' if loop.last }}">
+                <td class="so-computador"></td>
+                <td class="nome-peca">{{ p.nome }}</td>
+                <td class="num">{{ p.qtd }}<span class="so-telemovel">×</span></td>
+                <td class="num so-computador">{{ p.preco_unit|eur }}</td>
+                <td class="num">{{ p.total|eur }}</td>
+                <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}"><span class="so-telemovel muted">lucro </span>{{ p.lucro|eur }}</td>
+                <td class="so-computador"></td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Sem vendas em {{ nome_mes(mes) }}.</p>
+  {% endif %}
+</section>
+
+<section class="cartao" id="pecas">
+  <div class="cabecalho" style="margin-bottom: .5rem">
+    <h2 style="margin: 0">Peças guardadas</h2>
+    <a class="botao secundario pequeno" href="{{ url_for('.calculadora') }}">+ Calcular nova peça</a>
+  </div>
   {% if pecas %}
     <div class="tabela">
       <table class="responsiva">
@@ -48,7 +114,7 @@
               <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}" data-rotulo="Lucro">{{ p.lucro|eur }}</td>
               <td>
                 <div class="acoes">
-                  <a class="botao pequeno" href="{{ url_for('.vendas', peca=p.id) }}">Vender</a>
+                  <a class="botao pequeno" href="{{ url_for('.calculadora', id=p.id) }}" title="Abre a peça na calculadora para a juntares ao orçamento">Vender</a>
                   <a class="botao secundario pequeno" href="{{ url_for('.calculadora', id=p.id) }}">Editar</a>
                   <form method="post" action="{{ url_for('.apagar_peca', id=p.id) }}" data-confirmar="Apagar esta peça?">
                     <button class="perigo pequeno">Apagar</button>
@@ -62,45 +128,6 @@
     </div>
   {% else %}
     <p class="vazio">Ainda não guardaste nenhuma peça. Usa a <a href="{{ url_for('.calculadora') }}">calculadora</a>.</p>
-  {% endif %}
-</section>
-
-<section class="cartao">
-  <div class="cabecalho" style="margin-bottom: .5rem">
-    <h2 style="margin: 0">Últimas vendas</h2>
-    <a href="{{ url_for('.vendas') }}">Ver todas →</a>
-  </div>
-  {% if ultimas %}
-    <div class="tabela">
-      <table>
-        <tbody>
-          {% for v in ultimas %}
-            <tr {{ 'class="com-pecas"'|safe if v.pecas }}>
-              <td>{{ v.data|data_curta }}</td>
-              <td>
-                {% if v.pecas %}
-                  {{ v.cliente or 'Orçamento' }} <span class="muted">· {{ v.pecas|length }} peças</span>
-                {% else %}
-                  {{ v.quantidade }}× {{ v.descricao }}{% if v.cliente %} <span class="muted">· {{ v.cliente }}</span>{% endif %}
-                {% endif %}
-              </td>
-              <td class="num">{{ (v.quantidade * v.preco_unit)|eur }}</td>
-              <td class="num {{ 'negativo' if v.lucro < 0 else 'positivo' }}">{{ v.lucro|eur }}</td>
-            </tr>
-            {% for p in v.pecas or [] %}
-              <tr class="sub-venda {{ 'ultima' if loop.last }}">
-                <td></td>
-                <td>{{ p.qtd }}× {{ p.nome }}</td>
-                <td class="num">{{ p.total|eur }}</td>
-                <td class="num {{ 'negativo' if p.lucro < 0 else 'positivo' }}">{{ p.lucro|eur }}</td>
-              </tr>
-            {% endfor %}
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <p class="vazio">Sem vendas registadas.</p>
   {% endif %}
 </section>
 {% endblock %}

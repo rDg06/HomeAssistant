@@ -188,13 +188,22 @@ def _com_pecas(vendas):
     return lista
 
 
+def _ir_para_vendas(mes=None):
+    """As vendas estão no painel, por baixo das peças guardadas."""
+    return url_for(".painel", mes=mes, _anchor="vendas")
+
+
 @bp.route("/")
 def painel():
+    """Painel da impressão 3D: resumo do mês, peças guardadas, vendas do mês e registar venda."""
     db = get_db()
-    mes = hoje_mes()
-    ultimas = db.execute(
+    mes = request.args.get("mes", "")
+    if not mes_valido(mes):
+        mes = hoje_mes()
+    vendas_mes = db.execute(
         """SELECT *, quantidade * (preco_unit - custo_unit) - outros_custos AS lucro
-           FROM vendas ORDER BY data DESC, id DESC LIMIT 5"""
+           FROM vendas WHERE substr(data, 1, 7) = ? ORDER BY data DESC, id DESC""",
+        (mes,),
     ).fetchall()
     return render_template(
         "impressao/painel.html",
@@ -202,7 +211,7 @@ def painel():
         resumo_mes=resumo_vendas(db, mes),
         resumo_ano=resumo_vendas(db, mes[:4]),
         pecas=pecas_com_custo(db),
-        ultimas=_com_pecas(ultimas),
+        vendas=_com_pecas(vendas_mes),
     )
 
 
@@ -268,24 +277,12 @@ def apagar_peca(id):
 
 @bp.route("/vendas")
 def vendas():
-    mes = request.args.get("mes", "")
-    if not mes_valido(mes):
-        mes = hoje_mes()
-    db = get_db()
-    lista = db.execute(
-        """SELECT *, quantidade * (preco_unit - custo_unit) - outros_custos AS lucro
-           FROM vendas WHERE substr(data, 1, 7) = ? ORDER BY data DESC, id DESC""",
-        (mes,),
-    ).fetchall()
-    return render_template(
-        "impressao/vendas.html",
-        mes=mes,
-        vendas=_com_pecas(lista),
-        resumo=resumo_vendas(db, mes),
-        pecas=pecas_com_custo(db),
-        peca_escolhida=request.args.get("peca", type=int),
-        data_padrao=date.today().isoformat() if mes == hoje_mes() else f"{mes}-01",
-    )
+    """Endereço antigo da página das vendas (agora no painel; vender uma peça faz-se na calculadora)."""
+    peca = request.args.get("peca", type=int)
+    if peca:
+        return redirect(url_for(".calculadora", id=peca))
+    mes = request.args.get("mes") if mes_valido(request.args.get("mes", "")) else None
+    return redirect(_ir_para_vendas(mes))
 
 
 @bp.post("/vendas/nova")
@@ -310,7 +307,7 @@ def nova_venda():
 
     if not descricao or preco_unit is None or preco_unit < 0:
         flash("Indica o que vendeste e o preço.", "erro")
-        return redirect(url_for(".vendas", mes=data_venda[:7]))
+        return redirect(_ir_para_vendas(data_venda[:7]))
 
     quantidade = min(max(1, f.get("quantidade", type=int) or 1), 100000)
     calc = _calc_da_peca(peca) if peca else None
@@ -333,7 +330,7 @@ def nova_venda():
     )
     db.commit()
     flash("Venda registada.", "ok")
-    return redirect(url_for(".vendas", mes=data_venda[:7]))
+    return redirect(_ir_para_vendas(data_venda[:7]))
 
 
 @bp.post("/vendas/orcamento")
@@ -357,7 +354,7 @@ def registar_orcamento():
     db.commit()
     flash("Orçamento registado como venda." if len(itens) == 1
           else f"Orçamento registado como uma venda com {len(itens)} peças.", "ok")
-    return {"ok": True, "url": url_for(".vendas")}
+    return {"ok": True, "url": _ir_para_vendas()}
 
 
 @bp.route("/vendas/<int:id>/editar", methods=["GET", "POST"])
@@ -403,7 +400,7 @@ def editar_venda(id):
         )
         db.commit()
         flash("Venda atualizada.", "ok")
-        return redirect(url_for(".vendas", mes=data_venda[:7]))
+        return redirect(_ir_para_vendas(data_venda[:7]))
     return render_template("impressao/venda.html", venda=venda, itens=_itens(db, venda),
                            filamentos=_filamentos(db), cfg=ler_config(db))
 
@@ -415,7 +412,7 @@ def apagar_venda(id):
     db.execute("DELETE FROM vendas WHERE id = ?", (id,))
     db.commit()
     flash("Venda apagada.", "ok")
-    return redirect(url_for(".vendas", mes=venda["data"][:7] if venda else None))
+    return redirect(_ir_para_vendas(venda["data"][:7] if venda else None))
 
 
 def _ir_para_filamentos():
