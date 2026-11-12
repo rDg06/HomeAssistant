@@ -63,7 +63,7 @@ def _fixas_por_lancar(db, mes):
         """SELECT * FROM despesas_fixas f
            WHERE f.ativa = 1 AND NOT EXISTS (
                SELECT 1 FROM gastos g WHERE g.fixa_id = f.id AND substr(g.data, 1, 7) = ?
-           ) ORDER BY f.dia, f.descricao""",
+           ) ORDER BY f.dia, f.descricao COLLATE PT""",
         (mes,),
     ).fetchall()
 
@@ -117,7 +117,7 @@ def _ler_form():
     return dados, erros
 
 
-CORES = 8  # cores distintas no gráfico; ver .serie-N em style.css
+CORES = 13  # cores distintas no gráfico; ver .serie-N em style.css
 RAIO = 70
 PERIMETRO = 2 * math.pi * RAIO
 ESPACO = 2  # separação entre fatias
@@ -127,7 +127,7 @@ def _fatias(db, por_categoria, total):
     """Fatias do gráfico circular, da maior para a menor.
 
     Cada categoria tem sempre a mesma cor (pela ordem em que foi criada), para não mudar de cor de mês
-    para mês. "Sem categoria" e categorias além da 8.ª ficam a cinzento.
+    para mês. "Sem categoria" fica a cinzento; a partir da 14.ª categoria as cores repetem-se.
     """
     ordem = {r[0]: i for i, r in enumerate(db.execute("SELECT id FROM categorias ORDER BY id"))}
     fatias, inicio = [], 0.0
@@ -139,7 +139,7 @@ def _fatias(db, por_categoria, total):
             "nome": c["nome"],
             "total": c["total"],
             "pct": c["total"] / total * 100 if total else 0,
-            "serie": posicao + 1 if posicao is not None and posicao < CORES else 0,
+            "serie": posicao % CORES + 1 if posicao is not None else 0,
             "traco": f"{visivel:.2f} {PERIMETRO:.2f}",
             "desvio": f"{-inicio:.2f}",
         })
@@ -328,7 +328,7 @@ def fixas():
     lista_fixas = db.execute(
         """SELECT f.*, c.nome AS categoria FROM despesas_fixas f
            LEFT JOIN categorias c ON c.id = f.categoria_id
-           ORDER BY f.ativa DESC, f.dia, f.descricao"""
+           ORDER BY f.ativa DESC, f.dia, f.descricao COLLATE PT"""
     ).fetchall()
     return render_template(
         "gastos/fixas.html",

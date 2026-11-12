@@ -22,13 +22,13 @@
   <div class="numero">
     <div class="rotulo">Lucro em {{ nome_mes(mes) }}</div>
     <div class="valor {{ 'negativo' if resumo_mes.lucro < 0 else 'positivo' }}">{{ resumo_mes.lucro|eur }}</div>
-    <div class="extra muted">{{ resumo_mes.lucro_mo|eur }} com mão de obra
-      {{ ajuda('O lucro mais o valor da tua mão de obra (preparação e acabamento): o que ganhas se o trabalho for teu. Só conta as vendas com os dados da calculadora.') }}</div>
+    {% if resumo_mes.mao_obra >= 0.005 %}<div class="extra muted">{{ resumo_mes.lucro_mo|eur }} com mão de obra
+      {{ ajuda('O lucro mais o valor da tua mão de obra (preparação e acabamento): o que ganhas se o trabalho for teu. Só conta as vendas com os dados da calculadora.') }}</div>{% endif %}
   </div>
   <div class="numero">
     <div class="rotulo">Lucro em {{ mes[:4] }}</div>
     <div class="valor {{ 'negativo' if resumo_ano.lucro < 0 else 'positivo' }}">{{ resumo_ano.lucro|eur }}</div>
-    <div class="extra muted">{{ resumo_ano.lucro_mo|eur }} com mão de obra · {{ resumo_ano.faturado|eur }} faturado</div>
+    <div class="extra muted">{% if resumo_ano.mao_obra >= 0.005 %}{{ resumo_ano.lucro_mo|eur }} com mão de obra · {% endif %}{{ resumo_ano.faturado|eur }} faturado</div>
   </div>
 </div>
 

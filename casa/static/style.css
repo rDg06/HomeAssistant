@@ -20,6 +20,11 @@
   --serie-6: #008300;
   --serie-7: #6250d6;
   --serie-8: #e34948;
+  --serie-9: #0f97ad;
+  --serie-10: #9a6635;
+  --serie-11: #8a9a14;
+  --serie-12: #b5359a;
+  --serie-13: #34508f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,6 +48,11 @@
     --serie-6: #008300;
     --serie-7: #9085e9;
     --serie-8: #e66767;
+    --serie-9: #22b0c6;
+    --serie-10: #b98552;
+    --serie-11: #a3b42c;
+    --serie-12: #cf55b5;
+    --serie-13: #6f8bd0;
   }
 }
 
@@ -391,6 +401,11 @@ tr.a-editar td { background: var(--accent-soft); }
 .fatia.serie-6 { stroke: var(--serie-6); } .amostra.serie-6 { background: var(--serie-6); }
 .fatia.serie-7 { stroke: var(--serie-7); } .amostra.serie-7 { background: var(--serie-7); }
 .fatia.serie-8 { stroke: var(--serie-8); } .amostra.serie-8 { background: var(--serie-8); }
+.fatia.serie-9 { stroke: var(--serie-9); } .amostra.serie-9 { background: var(--serie-9); }
+.fatia.serie-10 { stroke: var(--serie-10); } .amostra.serie-10 { background: var(--serie-10); }
+.fatia.serie-11 { stroke: var(--serie-11); } .amostra.serie-11 { background: var(--serie-11); }
+.fatia.serie-12 { stroke: var(--serie-12); } .amostra.serie-12 { background: var(--serie-12); }
+.fatia.serie-13 { stroke: var(--serie-13); } .amostra.serie-13 { background: var(--serie-13); }
 
 /* Ajuda "?" ao lado dos campos */
 label { position: relative; }

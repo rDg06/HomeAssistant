@@ -13,8 +13,10 @@
         <input type="number" name="custo_unit" value="{{ '%.2f'|format(item.custo_unit) if item }}" step="0.01" min="0" inputmode="decimal"></label>
     </div>
     <div class="campos calc">
+      {% set apagado = c.filamento_id and c.filamento_id not in filamentos|map(attribute='id')|list %}
       <label>Filamento
         <select name="filamento_id">
+          {% if apagado %}<option value="" data-preco="0" selected>— filamento apagado —</option>{% endif %}
           {% for f in filamentos %}
             <option value="{{ f.id }}" data-preco="{{ f.preco_kg }}" {{ 'selected' if c.filamento_id == f.id }}>{{ f.nome }} ({{ f.material }})</option>
           {% endfor %}
@@ -26,6 +28,9 @@
       <label><span>Acabamento (min) {{ ajuda('Pós-processamento: remover suportes, lixar, pintar ou montar.') }}</span><input type="number" name="trabalho_min" value="{{ '%g'|format(c.trabalho_min) if c.trabalho_min }}" step="any" min="0"></label>
       <label><span>Extras (€) {{ ajuda('Envio, embalagem: custos fora da impressão, sem margem.') }}</span><input type="number" name="custos_extra" value="{{ '%g'|format(c.custos_extra) if c.custos_extra }}" step="any" min="0" inputmode="decimal"></label>
     </div>
+    {% if apagado %}
+      <p class="aviso erro pequeno" style="margin: .6rem 0 0">O filamento desta peça foi apagado. Escolhe outro se quiseres recalcular o custo (o custo guardado mantém-se).</p>
+    {% endif %}
     <div class="rodape-peca">
       <span class="muted pequeno sugerido"></span>
       <span class="pequeno">Total <b class="total-linha"></b> · lucro <b class="lucro-linha"></b><span class="mo-linha muted"></span></span>
@@ -72,6 +77,7 @@
   const CFG = {{ cfg|tojson }};
   const form = document.getElementById('venda');
   const lista = document.getElementById('pecas');
+  const n_filamentos = () => {{ filamentos|length }};
   const CALC = ['filamento_id', 'gramas', 'horas_h', 'horas_m', 'trabalho_min', 'custos_extra'];
 
   // Custo calculado com os dados da impressão de uma peça (null se não tiver peso nem tempo).
@@ -89,12 +95,14 @@
       const campo = name => bloco.querySelector(`[name=${name}]`);
       const r = custoDaPeca(bloco);
       // Mudar os dados da impressão recalcula o custo desta peça.
-      if (r && mudou && bloco.contains(mudou) && CALC.includes(mudou.name)) {
+      const semFilamento = !campo('filamento_id').value && n_filamentos() > 0;
+      if (r && !semFilamento && mudou && bloco.contains(mudou) && CALC.includes(mudou.name)) {
         campo('custo_unit').value = (r.producao + r.extra).toFixed(2);
       }
       campo('preco_unit').placeholder = r ? r.preco_sugerido.toFixed(2) : '';
-      bloco.querySelector('.sugerido').textContent = r
-        ? `Custo calculado ${fmtEur(r.producao + r.extra)} · preço sugerido ${fmtEur(r.preco_sugerido)}` : '';
+      bloco.querySelector('.sugerido').textContent = !r ? ''
+        : semFilamento ? 'Escolhe o filamento para calcular o custo'
+        : `Custo calculado ${fmtEur(r.producao + r.extra)} · preço sugerido ${fmtEur(r.preco_sugerido)}`;
       const qtd = Math.max(1, Math.round(lerNum(campo('qtd').value)) || 1);
       const t = qtd * lerNum(campo('preco_unit').value), c = qtd * lerNum(campo('custo_unit').value);
       bloco.querySelector('.total-linha').textContent = fmtEur(t);

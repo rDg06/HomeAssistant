@@ -72,7 +72,7 @@ def pecas_com_custo(db, peca_id=None):
     if peca_id is not None:
         rows = db.execute(sql + " WHERE p.id = ?", (peca_id,)).fetchall()
     else:
-        rows = db.execute(sql + " ORDER BY p.nome").fetchall()
+        rows = db.execute(sql + " ORDER BY p.nome COLLATE PT").fetchall()
     pecas = []
     for r in rows:
         custo = calcular(cfg, r["preco_kg"], r["gramas"], r["horas"], r["horas_trabalho"], r["custos_extra"])

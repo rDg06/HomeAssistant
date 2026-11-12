@@ -53,7 +53,7 @@ def lista():
     procura = sem_acentos(pesquisa)
     receitas = [
         dict(r, custo=custos.get(r["id"], 0))
-        for r in db.execute(sql + " ORDER BY tipo, nome", params).fetchall()
+        for r in db.execute(sql + " ORDER BY tipo, nome COLLATE PT", params).fetchall()
         if procura in sem_acentos(r["nome"])
     ]
     return render_template("receitas/lista.html", receitas=receitas, tipos=TIPOS, tipo=tipo, q=pesquisa)
@@ -422,7 +422,7 @@ def _extras(db):
 def _receitas_por_tipo(db, custos):
     """Receitas agrupadas por tipo (Base, Recheio, Cobertura, Outro), para o menu de escolha."""
     receitas = [dict(r, custo=custos.get(r["id"], 0))
-                for r in db.execute("SELECT id, nome, tipo, tamanho FROM receitas ORDER BY nome")]
+                for r in db.execute("SELECT id, nome, tipo, tamanho FROM receitas ORDER BY nome COLLATE PT")]
     grupos = {t: [r for r in receitas if r["tipo"] == t] for t in TIPOS}
     return {t: rs for t, rs in grupos.items() if rs}
 
