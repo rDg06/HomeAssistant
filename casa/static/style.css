@@ -312,16 +312,12 @@ tr.sub-venda td:nth-child(2) { padding-left: 1.2rem; color: var(--muted); }
 .resumo-venda { text-align: right; margin: .75rem 0 .5rem; }
 /* Pedido do orçamento 3D que está na calculadora a ser editado */
 tr.a-editar td { background: var(--accent-soft); }
-/* Editar venda no telemóvel: o nome da peça numa linha, quantidade, preço e custo por baixo */
-@media (max-width: 640px) {
-  table.linhas-venda thead, table.linhas-venda .total-linha { display: none; }
-  table.linhas-venda tr { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: .35rem; align-items: end;
-                          padding: .5rem 0; border-bottom: 1px solid var(--border); }
-  table.linhas-venda td { display: block; width: auto !important; border: 0; padding: 0; }
-  table.linhas-venda td:first-child { grid-column: 1 / -1; }
-  table.linhas-venda td[data-rotulo]::before { content: attr(data-rotulo); display: block; font-size: .75rem; color: var(--muted); }
-  table.linhas-venda input { width: 100%; min-width: 0 !important; }
-}
+/* Editar venda: cada peça num bloco, com os dados da impressão por baixo */
+.peca-venda { border: 1px solid var(--border); border-radius: 10px; padding: .85rem; margin-bottom: .75rem; }
+.peca-venda .calc { margin-top: .75rem; padding-top: .75rem; border-top: 1px dashed var(--border);
+                    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.rodape-peca { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; justify-content: flex-end; margin-top: .75rem; }
+.rodape-peca .sugerido { margin-right: auto; }
 /* Tabela com o conteúdo das colunas à esquerda e os botões à direita (só no computador; no telemóvel são cartões) */
 @media (min-width: 641px) {
   table.esquerda th, table.esquerda td { text-align: left; }

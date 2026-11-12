@@ -96,7 +96,38 @@ def _filamentos(db):
     return db.execute("SELECT * FROM filamentos ORDER BY material, nome").fetchall()
 
 
-def _item(nome, qtd, preco_unit, custo_unit):
+# Dados da calculadora guardados com cada peça de uma venda, para se poderem editar mais tarde.
+CAMPOS_CALC = ("gramas", "horas_h", "horas_m", "trabalho_min", "custos_extra")
+
+
+def _calc(campos):
+    """Filamento, peso, tempo, pós-processamento e extras de uma peça, ou None se não houver peso nem tempo."""
+    if not isinstance(campos, dict):
+        return None
+    calc = {}
+    for c in CAMPOS_CALC:
+        n = parse_num(str(campos.get(c) or ""))
+        calc[c] = n if math.isfinite(n) and n > 0 else 0
+    if calc["gramas"] <= 0 and calc["horas_h"] + calc["horas_m"] <= 0:
+        return None
+    try:
+        calc["filamento_id"] = int(campos.get("filamento_id") or 0) or None
+    except (TypeError, ValueError):
+        calc["filamento_id"] = None
+    return calc
+
+
+def _calc_da_peca(peca):
+    """Os dados da calculadora de uma peça guardada, no formato das peças das vendas."""
+    horas = peca["horas"] or 0
+    return _calc({
+        "filamento_id": peca["filamento_id"], "gramas": peca["gramas"], "horas_h": int(horas),
+        "horas_m": round((horas - int(horas)) * 60), "trabalho_min": round((peca["horas_trabalho"] or 0) * 60),
+        "custos_extra": peca["custos_extra"],
+    })
+
+
+def _item(nome, qtd, preco_unit, custo_unit, calc=None):
     """Uma peça de uma venda, validada. Dá ValueError/TypeError/OverflowError se os valores não servirem."""
     item = {
         "nome": str(nome or "").strip()[:200] or "Impressão 3D",
@@ -106,6 +137,8 @@ def _item(nome, qtd, preco_unit, custo_unit):
     }
     if not all(math.isfinite(item[k]) and item[k] >= 0 for k in ("preco_unit", "custo_unit")):
         raise ValueError("valor inválido")
+    if calc:
+        item["calc"] = calc
     return item
 
 
@@ -113,8 +146,9 @@ def _colunas_venda(itens):
     """Descrição, quantidade e valores por unidade de uma venda a partir das suas peças."""
     if len(itens) == 1:
         i = itens[0]
+        # Uma peça só: a lista só se guarda se tiver os dados da calculadora.
         return {"descricao": i["nome"], "quantidade": i["qtd"], "preco_unit": i["preco_unit"],
-                "custo_unit": i["custo_unit"], "itens": None}
+                "custo_unit": i["custo_unit"], "itens": json.dumps(itens, ensure_ascii=False) if "calc" in i else None}
     unidades = sum(i["qtd"] for i in itens)
     return {
         "descricao": " + ".join(f"{i['qtd']}× {i['nome']}" for i in itens),
@@ -126,12 +160,17 @@ def _colunas_venda(itens):
     }
 
 
-def _itens(venda):
-    """As peças de uma venda: a lista guardada ou, numa venda simples, a própria venda."""
+def _itens(db, venda):
+    """As peças de uma venda: a lista guardada ou, numa venda simples, a própria venda
+    (com os dados da peça guardada a que está ligada, se ainda existir)."""
     if venda["itens"]:
         return json.loads(venda["itens"])
-    return [{"nome": venda["descricao"], "qtd": venda["quantidade"],
-             "preco_unit": venda["preco_unit"], "custo_unit": venda["custo_unit"]}]
+    item = {"nome": venda["descricao"], "qtd": venda["quantidade"],
+            "preco_unit": venda["preco_unit"], "custo_unit": venda["custo_unit"]}
+    peca = venda["peca_id"] and db.execute("SELECT * FROM pecas WHERE id = ?", (venda["peca_id"],)).fetchone()
+    if peca and _calc_da_peca(peca):
+        item["calc"] = _calc_da_peca(peca)
+    return [item]
 
 
 def _com_pecas(vendas):
@@ -139,6 +178,8 @@ def _com_pecas(vendas):
     lista = []
     for v in vendas:
         pecas = json.loads(v["itens"]) if v["itens"] else None
+        if pecas is not None and len(pecas) < 2:
+            pecas = None  # venda de uma peça só (a lista existe só para guardar os dados da calculadora)
         for p in pecas or []:
             p["total"] = p["qtd"] * p["preco_unit"]
             p["lucro"] = p["qtd"] * (p["preco_unit"] - p["custo_unit"])
@@ -270,16 +311,20 @@ def nova_venda():
         flash("Indica o que vendeste e o preço.", "erro")
         return redirect(url_for(".vendas", mes=data_venda[:7]))
 
+    quantidade = min(max(1, f.get("quantidade", type=int) or 1), 100000)
+    calc = _calc_da_peca(peca) if peca else None
     db.execute(
-        """INSERT INTO vendas (data, peca_id, descricao, quantidade, preco_unit, custo_unit, outros_custos, cliente, notas)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO vendas (data, peca_id, descricao, quantidade, preco_unit, custo_unit, itens, outros_custos, cliente, notas)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             data_venda,
             peca_id,
             descricao,
-            min(max(1, f.get("quantidade", type=int) or 1), 100000),
+            quantidade,
             preco_unit,
             custo_unit,
+            # Os dados da peça ficam com a venda, para se poder editar mesmo que a peça mude ou seja apagada.
+            json.dumps([_item(descricao, quantidade, preco_unit, custo_unit, calc)], ensure_ascii=False) if calc else None,
             max(0.0, parse_num(f.get("outros_custos"))),
             f.get("cliente", "").strip(),
             f.get("notas", "").strip(),
@@ -297,7 +342,8 @@ def registar_orcamento():
     if not isinstance(pedidos, list) or not pedidos or not all(isinstance(p, dict) for p in pedidos):
         abort(400)
     try:
-        itens = [_item(p.get("nome"), p.get("qtd"), p["preco_unit"], p.get("custo_unit")) for p in pedidos]
+        itens = [_item(p.get("nome"), p.get("qtd"), p["preco_unit"], p.get("custo_unit"), _calc(p.get("campos")))
+                 for p in pedidos]
     except (KeyError, TypeError, ValueError, OverflowError):
         abort(400)
     db = get_db()
@@ -322,12 +368,16 @@ def editar_venda(id):
     if request.method == "POST":
         f = request.form
         itens = []
+        nomes = f.getlist("nome")
+        coluna = lambda campo: f.getlist(campo) + [""] * (len(nomes) - len(f.getlist(campo)))
+        linhas = zip(nomes, coluna("qtd"), coluna("preco_unit"), coluna("custo_unit"),
+                     *(coluna(c) for c in ("filamento_id",) + CAMPOS_CALC))
         try:
-            for nome, qtd, preco, custo in zip(f.getlist("nome"), f.getlist("qtd"),
-                                               f.getlist("preco_unit"), f.getlist("custo_unit")):
+            for nome, qtd, preco, custo, *dados in linhas:
                 if not nome.strip() and not preco.strip():
                     continue  # linha deixada em branco
-                itens.append(_item(nome, parse_num(qtd, 1), parse_num(preco, None), parse_num(custo)))
+                calc = _calc(dict(zip(("filamento_id",) + CAMPOS_CALC, dados)))
+                itens.append(_item(nome, parse_num(qtd, 1), parse_num(preco, None), parse_num(custo), calc))
         except (TypeError, ValueError, OverflowError):
             itens = None
         if not itens:
@@ -353,7 +403,8 @@ def editar_venda(id):
         db.commit()
         flash("Venda atualizada.", "ok")
         return redirect(url_for(".vendas", mes=data_venda[:7]))
-    return render_template("impressao/venda.html", venda=venda, itens=_itens(venda))
+    return render_template("impressao/venda.html", venda=venda, itens=_itens(db, venda),
+                           filamentos=_filamentos(db), cfg=ler_config(db))
 
 
 @bp.post("/vendas/<int:id>/apagar")

@@ -113,6 +113,7 @@
 {% endblock %}
 
 {% block scripts %}
+{% include "impressao/_formula.html" %}
 <script>
   const CFG = {{ cfg|tojson }};
   const URL_ORCAMENTO = {{ url_for('.registar_orcamento')|tojson }};
@@ -130,18 +131,7 @@
     const horas = v('horas_h') + v('horas_m') / 60;
     const qtd = Math.max(1, Math.round(v('qtd')) || 1);
 
-    // Mesma fórmula que calcular() em impressao.py.
-    const r = {};
-    r.material = v('gramas') / 1000 * precoKg;
-    r.energia = CFG.potencia_w / 1000 * horas * CFG.preco_kwh;
-    r.desgaste = (CFG.custo_impressora / Math.max(1, CFG.vida_util_horas) + CFG.manutencao_hora) * horas;
-    r.mao_obra = (CFG.prep_min + v('trabalho_min')) / 60 * CFG.valor_hora_trabalho;
-    const base = r.material + r.energia + r.desgaste + r.mao_obra;
-    r.falhas = base * CFG.taxa_falha_pct / 100;
-    r.producao = base + r.falhas;
-    r.margem = r.producao * CFG.margem_pct / 100;
-    r.extra = v('custos_extra');
-    r.preco_sugerido = r.producao + r.margem + r.extra;
+    const r = custoImpressao(CFG, precoKg, v('gramas'), horas, v('trabalho_min'), v('custos_extra'));
     r.unit = form.elements.preco_venda.value ? v('preco_venda') : r.preco_sugerido;
     r.final = r.unit * qtd;
     r.lucro_total = (r.unit - r.producao - r.extra) * qtd;

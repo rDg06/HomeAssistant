@@ -1,15 +1,37 @@
 {% extends "base.html" %}
+{% from "_macros.html" import ajuda %}
 {% block titulo %}Editar venda{% endblock %}
 
-{% macro linha(item=none) %}
-  <tr>
-    <td><input name="nome" value="{{ item.nome if item }}" placeholder="ex.: suporte de comando" aria-label="Peça" style="min-width: 10rem"></td>
-    <td style="width: 5rem" data-rotulo="Qtd."><input type="number" name="qtd" value="{{ item.qtd if item else 1 }}" min="1" step="1" aria-label="Quantidade"></td>
-    <td style="width: 7rem" data-rotulo="Preço un."><input type="number" name="preco_unit" value="{{ '%.2f'|format(item.preco_unit) if item }}" step="0.01" min="0" inputmode="decimal" aria-label="Preço por unidade"></td>
-    <td style="width: 7rem" data-rotulo="Custo un."><input type="number" name="custo_unit" value="{{ '%.2f'|format(item.custo_unit) if item }}" step="0.01" min="0" inputmode="decimal" aria-label="Custo por unidade"></td>
-    <td class="num total-linha"></td>
-    <td style="width: 2.5rem"><button type="button" class="perigo pequeno remover" title="Remover">✕</button></td>
-  </tr>
+{% macro peca(item=none) %}
+  {% set c = item.calc if item and item.calc else {} %}
+  <div class="peca-venda">
+    <div class="campos">
+      <label class="largo">Peça<input name="nome" value="{{ item.nome if item }}" placeholder="ex.: suporte de comando" autocomplete="off"></label>
+      <label>Quantidade<input type="number" name="qtd" value="{{ item.qtd if item else 1 }}" min="1" step="1"></label>
+      <label>Preço por unidade (€)<input type="number" name="preco_unit" value="{{ '%.2f'|format(item.preco_unit) if item }}" step="0.01" min="0" inputmode="decimal"></label>
+      <label><span>Custo por unidade (€) {{ ajuda('Calcula-se sozinho quando mudas os dados da impressão. Também o podes escrever à mão.') }}</span>
+        <input type="number" name="custo_unit" value="{{ '%.2f'|format(item.custo_unit) if item }}" step="0.01" min="0" inputmode="decimal"></label>
+    </div>
+    <div class="campos calc">
+      <label>Filamento
+        <select name="filamento_id">
+          {% for f in filamentos %}
+            <option value="{{ f.id }}" data-preco="{{ f.preco_kg }}" {{ 'selected' if c.filamento_id == f.id }}>{{ f.nome }} ({{ f.material }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Peso (g)<input type="number" name="gramas" value="{{ '%g'|format(c.gramas) if c.gramas }}" step="any" min="0" inputmode="decimal"></label>
+      <label>Tempo (h)<input type="number" name="horas_h" value="{{ '%g'|format(c.horas_h) if c.horas_h }}" step="1" min="0"></label>
+      <label>Tempo (min)<input type="number" name="horas_m" value="{{ '%g'|format(c.horas_m) if c.horas_m }}" step="1" min="0" max="59"></label>
+      <label><span>Acabamento (min) {{ ajuda('Pós-processamento: remover suportes, lixar, pintar ou montar.') }}</span><input type="number" name="trabalho_min" value="{{ '%g'|format(c.trabalho_min) if c.trabalho_min }}" step="any" min="0"></label>
+      <label><span>Extras (€) {{ ajuda('Envio, embalagem: custos fora da impressão, sem margem.') }}</span><input type="number" name="custos_extra" value="{{ '%g'|format(c.custos_extra) if c.custos_extra }}" step="any" min="0" inputmode="decimal"></label>
+    </div>
+    <div class="rodape-peca">
+      <span class="muted pequeno sugerido"></span>
+      <span class="pequeno">Total <b class="total-linha"></b> · lucro <b class="lucro-linha"></b></span>
+      <button type="button" class="perigo pequeno remover">Remover peça</button>
+    </div>
+  </div>
 {% endmacro %}
 
 {% block conteudo %}
@@ -28,13 +50,8 @@
 
   <section class="cartao">
     <h2>Peças</h2>
-    <div class="tabela">
-      <table class="linhas-venda">
-        <thead><tr><th>Peça</th><th>Qtd.</th><th>Preço un. (€)</th><th>Custo un. (€)</th><th class="num">Total</th><th></th></tr></thead>
-        <tbody id="linhas">
-          {% for item in itens %}{{ linha(item) }}{% endfor %}
-        </tbody>
-      </table>
+    <div id="pecas">
+      {% for item in itens %}{{ peca(item) }}{% endfor %}
     </div>
     <p class="resumo-venda">Total <b id="total"></b> · Lucro <b id="lucro"></b></p>
     <p style="margin-bottom: 0"><button type="button" class="secundario pequeno" id="adicionar">+ Peça</button></p>
@@ -46,41 +63,69 @@
   </div>
 </form>
 
-<template id="linha-modelo">{{ linha() }}</template>
+<template id="peca-modelo">{{ peca() }}</template>
 {% endblock %}
 
 {% block scripts %}
+{% include "impressao/_formula.html" %}
 <script>
+  const CFG = {{ cfg|tojson }};
   const form = document.getElementById('venda');
-  const corpo = document.getElementById('linhas');
+  const lista = document.getElementById('pecas');
+  const CALC = ['filamento_id', 'gramas', 'horas_h', 'horas_m', 'trabalho_min', 'custos_extra'];
 
-  function atualizar() {
+  // Custo calculado com os dados da impressão de uma peça (null se não tiver peso nem tempo).
+  function custoDaPeca(bloco) {
+    const n = name => Math.max(0, lerNum(bloco.querySelector(`[name=${name}]`).value));
+    const horas = n('horas_h') + n('horas_m') / 60;
+    if (n('gramas') <= 0 && horas <= 0) return null;
+    const opcao = bloco.querySelector('[name=filamento_id]').selectedOptions[0];
+    return custoImpressao(CFG, opcao ? parseFloat(opcao.dataset.preco) : 0, n('gramas'), horas, n('trabalho_min'), n('custos_extra'));
+  }
+
+  function atualizar(mudou) {
     let total = 0, custo = 0;
-    for (const tr of corpo.querySelectorAll('tr')) {
-      const n = name => lerNum(tr.querySelector(`[name=${name}]`).value);
-      const qtd = Math.max(1, Math.round(n('qtd')) || 1);
-      tr.querySelector('.total-linha').textContent = fmtEur(qtd * n('preco_unit'));
-      total += qtd * n('preco_unit');
-      custo += qtd * n('custo_unit');
+    for (const bloco of lista.querySelectorAll('.peca-venda')) {
+      const campo = name => bloco.querySelector(`[name=${name}]`);
+      const r = custoDaPeca(bloco);
+      // Mudar os dados da impressão recalcula o custo desta peça.
+      if (r && mudou && bloco.contains(mudou) && CALC.includes(mudou.name)) {
+        campo('custo_unit').value = (r.producao + r.extra).toFixed(2);
+      }
+      campo('preco_unit').placeholder = r ? r.preco_sugerido.toFixed(2) : '';
+      bloco.querySelector('.sugerido').textContent = r
+        ? `Custo calculado ${fmtEur(r.producao + r.extra)} · preço sugerido ${fmtEur(r.preco_sugerido)}` : '';
+      const qtd = Math.max(1, Math.round(lerNum(campo('qtd').value)) || 1);
+      const t = qtd * lerNum(campo('preco_unit').value), c = qtd * lerNum(campo('custo_unit').value);
+      bloco.querySelector('.total-linha').textContent = fmtEur(t);
+      const lucro = bloco.querySelector('.lucro-linha');
+      lucro.textContent = fmtEur(t - c);
+      lucro.className = 'lucro-linha ' + (t - c < 0 ? 'negativo' : 'positivo');
+      total += t;
+      custo += c;
     }
     const lucro = total - custo - lerNum(form.elements.outros_custos.value);
     document.getElementById('total').textContent = fmtEur(total);
     const celula = document.getElementById('lucro');
     celula.textContent = fmtEur(lucro);
     celula.className = lucro < 0 ? 'negativo' : 'positivo';
+    for (const b of lista.querySelectorAll('.remover')) b.hidden = lista.children.length < 2;
   }
 
   document.getElementById('adicionar').addEventListener('click', () => {
-    corpo.append(document.getElementById('linha-modelo').content.cloneNode(true));
-    corpo.lastElementChild.querySelector('input').focus();
+    lista.append(document.getElementById('peca-modelo').content.cloneNode(true));
+    lista.lastElementChild.querySelector('input').focus();
     atualizar();
   });
-  corpo.addEventListener('click', e => {
-    if (!e.target.closest('.remover')) return;
-    if (corpo.children.length > 1) e.target.closest('tr').remove();
+  lista.addEventListener('click', e => {
+    if (!e.target.closest('.remover') || lista.children.length < 2) return;
+    e.target.closest('.peca-venda').remove();
     atualizar();
   });
-  form.addEventListener('input', atualizar);
+  form.addEventListener('input', e => atualizar(e.target));
+  form.addEventListener('change', e => { if (e.target.tagName === 'SELECT') atualizar(e.target); });
+  // Enter num campo não grava a venda sem querer.
+  form.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault(); });
   atualizar();
 </script>
 {% endblock %}
