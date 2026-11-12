@@ -45,6 +45,9 @@
         <label><span>Pós-processamento (min) {{ ajuda('Tempo extra desta peça: remover suportes, lixar, pintar ou montar.') }}</span>
           <input type="number" name="trabalho_min" step="any" min="0" value="{{ (peca.horas_trabalho * 60)|round|int if peca }}">
         </label>
+        <label><span>Peças por impressão {{ ajuda('Quantas peças iguais imprimes de uma vez na mesma chapa. A preparação (' ~ cfg.prep_min|num ~ ' min) conta uma vez por impressão e divide-se por elas.') }}</span>
+          <input type="number" name="pecas_por_impressao" step="1" min="1" max="1000" value="{{ peca.pecas_por_impressao if peca else 1 }}">
+        </label>
         <label><span>Extras: envio, embalagem (€) {{ ajuda('Custos fora da impressão, como caixa e portes. Não entram na margem.') }}</span>
           <input type="number" name="custos_extra" step="any" min="0" inputmode="decimal" value="{{ peca.custos_extra if peca }}">
         </label>
@@ -137,7 +140,8 @@
   const URL_ORCAMENTO = {{ url_for('.registar_orcamento')|tojson }};
   const CHAVE = 'casa-orcamento-3d';
   // Campos guardados com cada pedido, para o poder voltar a pôr na calculadora e editar.
-  const CAMPOS = ['nome', 'filamento_id', 'gramas', 'qtd', 'horas_h', 'horas_m', 'trabalho_min', 'custos_extra', 'preco_venda'];
+  const CAMPOS = ['nome', 'filamento_id', 'gramas', 'qtd', 'horas_h', 'horas_m', 'trabalho_min', 'pecas_por_impressao',
+                  'custos_extra', 'preco_venda'];
   const form = document.getElementById('calc');
   const v = nome => Math.max(0, lerNum(form.elements[nome].value));
   let atual = null;
@@ -152,7 +156,8 @@
     const precoKg = opcao ? parseFloat(opcao.dataset.preco) : 0;
     const horas = n('horas_h') + n('horas_m') / 60;
     const qtd = Math.max(1, Math.round(n('qtd')) || 1);
-    const r = custoImpressao(CFG, precoKg, n('gramas'), horas, n('trabalho_min'), n('custos_extra'));
+    const r = custoImpressao(CFG, precoKg, n('gramas'), horas, n('trabalho_min'), n('custos_extra'),
+                             lerNum(campos.pecas_por_impressao) || 1);
     r.horas = horas;
     r.qtd = qtd;
     r.unit = String(campos.preco_venda ?? '') !== '' ? n('preco_venda') : r.preco_sugerido;
@@ -183,7 +188,7 @@
     for (const el of document.querySelectorAll('[data-r]')) el.textContent = fmtEur(r[el.dataset.r]);
     document.querySelector('[data-t=gramas]').textContent = `(${v('gramas').toLocaleString('pt-PT')} g)`;
     document.querySelector('[data-t=horas]').textContent = `(${horas.toLocaleString('pt-PT', { maximumFractionDigits: 2 })} h)`;
-    document.querySelector('[data-t=minutos]').textContent = `(${(CFG.prep_min + v('trabalho_min')).toLocaleString('pt-PT')} min)`;
+    document.querySelector('[data-t=minutos]').textContent = `(${(r.prep_min + v('trabalho_min')).toLocaleString('pt-PT', { maximumFractionDigits: 1 })} min)`;
     form.elements.preco_venda.placeholder = r.preco_sugerido.toFixed(2);
 
     atual = pedido(campos, r);

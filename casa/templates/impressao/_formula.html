@@ -1,11 +1,14 @@
 <script>
   // Custo de uma unidade. Mesma fórmula que calcular() em impressao.py.
-  function custoImpressao(CFG, precoKg, gramas, horas, trabalhoMin, extra) {
+  // A preparação fixa (por impressão) divide-se pelas peças que saem na mesma impressão.
+  function custoImpressao(CFG, precoKg, gramas, horas, trabalhoMin, extra, porImpressao = 1) {
+    const prep = CFG.prep_min / Math.min(Math.max(1, Math.floor(porImpressao) || 1), 1000);
     const r = {};
     r.material = gramas / 1000 * precoKg;
     r.energia = CFG.potencia_w / 1000 * horas * CFG.preco_kwh;
     r.desgaste = (CFG.custo_impressora / Math.max(1, CFG.vida_util_horas) + CFG.manutencao_hora) * horas;
-    r.mao_obra = (CFG.prep_min + trabalhoMin) / 60 * CFG.valor_hora_trabalho;
+    r.prep_min = prep;
+    r.mao_obra = (prep + trabalhoMin) / 60 * CFG.valor_hora_trabalho;
     const base = r.material + r.energia + r.desgaste + r.mao_obra;
     r.falhas = base * CFG.taxa_falha_pct / 100;
     r.producao = base + r.falhas;

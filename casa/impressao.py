@@ -19,7 +19,7 @@ CONFIG_CAMPOS = [
     ("valor_hora_trabalho", "Mão de obra", "€/h", "Quanto vale a tua hora de trabalho manual (preparação e acabamentos)."),
     ("prep_min", "Preparação por impressão", "min",
      "Tempo fixo por impressão: preparar no Bambu Studio, arrancar e limpar a chapa. "
-     "A A1 calibra-se sozinha, por isso costuma ser curto."),
+     "A A1 calibra-se sozinha, por isso costuma ser curto. Divide-se pelas peças que saem na mesma impressão."),
     ("custo_impressora", "Preço da impressora", "€", "Quanto pagaste pela A1 com o combo AMS lite."),
     ("vida_util_horas", "Vida útil da impressora", "h",
      "Horas de impressão até substituíres a A1. 5000 h é uma estimativa prudente (cerca de 3 anos a 5 h por dia)."),
@@ -36,17 +36,26 @@ def ler_config(db):
     return {r["chave"]: r["valor"] for r in db.execute("SELECT chave, valor FROM config")}
 
 
-def calcular(cfg, preco_kg, gramas, horas, horas_trabalho, extra):
+def por_impressao(valor):
+    """Peças por impressão: um número inteiro de 1 a 1000 (1 se não for válido)."""
+    try:
+        return min(max(1, int(float(str(valor).replace(",", ".")))), 1000)
+    except (TypeError, ValueError, OverflowError):
+        return 1
+
+
+def calcular(cfg, preco_kg, gramas, horas, horas_trabalho, extra, pecas_por_impressao=1):
     """Custo de uma unidade. Mesma fórmula que o JavaScript da calculadora.
 
     A margem aplica-se ao custo de produção; os extras (envio, embalagem) somam-se depois, sem margem.
-    `horas_trabalho` é o pós-processamento; a preparação fixa por impressão vem da configuração.
+    `horas_trabalho` é o pós-processamento; a preparação fixa por impressão vem da configuração e
+    divide-se pelas peças que saem na mesma impressão.
     """
     material = gramas / 1000 * preco_kg
     energia = cfg["potencia_w"] / 1000 * horas * cfg["preco_kwh"]
     vida = max(1, cfg["vida_util_horas"])
     desgaste = (cfg["custo_impressora"] / vida + cfg["manutencao_hora"]) * horas
-    mao_obra = (cfg["prep_min"] / 60 + horas_trabalho) * cfg["valor_hora_trabalho"]
+    mao_obra = (cfg["prep_min"] / por_impressao(pecas_por_impressao) / 60 + horas_trabalho) * cfg["valor_hora_trabalho"]
     base = material + energia + desgaste + mao_obra
     falhas = base * cfg["taxa_falha_pct"] / 100
     producao = base + falhas
@@ -75,7 +84,8 @@ def pecas_com_custo(db, peca_id=None):
         rows = db.execute(sql + " ORDER BY p.nome COLLATE PT").fetchall()
     pecas = []
     for r in rows:
-        custo = calcular(cfg, r["preco_kg"], r["gramas"], r["horas"], r["horas_trabalho"], r["custos_extra"])
+        custo = calcular(cfg, r["preco_kg"], r["gramas"], r["horas"], r["horas_trabalho"], r["custos_extra"],
+                         r["pecas_por_impressao"])
         preco = r["preco_venda"] if r["preco_venda"] is not None else custo["preco_sugerido"]
         lucro = preco - custo["total"]
         pecas.append(dict(r, custo=custo, preco=preco, lucro=lucro, lucro_mo=lucro + custo["mao_obra"]))
@@ -102,6 +112,8 @@ def _filamentos(db):
 
 # Dados da calculadora guardados com cada peça de uma venda, para se poderem editar mais tarde.
 CAMPOS_CALC = ("gramas", "horas_h", "horas_m", "trabalho_min", "custos_extra")
+# Campos de cada peça no formulário de editar uma venda
+CAMPOS_EDITAR = ("filamento_id",) + CAMPOS_CALC + ("pecas_por_impressao",)
 
 
 def _calc(campos):
@@ -118,6 +130,7 @@ def _calc(campos):
         calc["filamento_id"] = int(campos.get("filamento_id") or 0) or None
     except (TypeError, ValueError):
         calc["filamento_id"] = None
+    calc["pecas_por_impressao"] = por_impressao(campos.get("pecas_por_impressao") or 1)
     return calc
 
 
@@ -127,7 +140,7 @@ def _calc_da_peca(peca):
     return _calc({
         "filamento_id": peca["filamento_id"], "gramas": peca["gramas"], "horas_h": int(horas),
         "horas_m": round((horas - int(horas)) * 60), "trabalho_min": round((peca["horas_trabalho"] or 0) * 60),
-        "custos_extra": peca["custos_extra"],
+        "custos_extra": peca["custos_extra"], "pecas_por_impressao": peca["pecas_por_impressao"],
     })
 
 
@@ -135,7 +148,8 @@ def _mao_obra(cfg, calc):
     """Mão de obra por unidade (preparação fixa + acabamento), igual à linha da mão de obra na calculadora."""
     if not calc:
         return 0.0
-    return (cfg["prep_min"] + calc["trabalho_min"]) / 60 * cfg["valor_hora_trabalho"]
+    prep = cfg["prep_min"] / por_impressao(calc.get("pecas_por_impressao", 1))
+    return (prep + calc["trabalho_min"]) / 60 * cfg["valor_hora_trabalho"]
 
 
 def _item(nome, qtd, preco_unit, custo_unit, calc=None, cfg=None):
@@ -246,6 +260,7 @@ def calculadora():
             "horas": positivo("horas_h") + positivo("horas_m") / 60,
             "horas_trabalho": positivo("trabalho_min") / 60,
             "custos_extra": positivo("custos_extra"),
+            "pecas_por_impressao": por_impressao(f.get("pecas_por_impressao") or 1),
             "preco_venda": max(0.0, preco_venda) if preco_venda is not None else None,
             "notas": f.get("notas", "").strip(),
         }
@@ -255,6 +270,7 @@ def calculadora():
             alterados = db.execute(
                 """UPDATE pecas SET nome = :nome, filamento_id = :filamento_id, gramas = :gramas,
                    horas = :horas, horas_trabalho = :horas_trabalho, custos_extra = :custos_extra,
+                   pecas_por_impressao = :pecas_por_impressao,
                    preco_venda = :preco_venda, notas = :notas WHERE id = :id""",
                 dados,
             ).rowcount
@@ -264,8 +280,10 @@ def calculadora():
                 flash("Essa peça já não existe (foi apagada entretanto).", "erro")
         else:
             db.execute(
-                """INSERT INTO pecas (nome, filamento_id, gramas, horas, horas_trabalho, custos_extra, preco_venda, notas)
-                   VALUES (:nome, :filamento_id, :gramas, :horas, :horas_trabalho, :custos_extra, :preco_venda, :notas)""",
+                """INSERT INTO pecas (nome, filamento_id, gramas, horas, horas_trabalho, custos_extra,
+                                     pecas_por_impressao, preco_venda, notas)
+                   VALUES (:nome, :filamento_id, :gramas, :horas, :horas_trabalho, :custos_extra,
+                           :pecas_por_impressao, :preco_venda, :notas)""",
                 dados,
             )
             flash(f"Peça \"{dados['nome']}\" guardada.", "ok")
@@ -286,6 +304,7 @@ def calculadora():
             "id": p["id"], "nome": p["nome"], "filamento_id": p["filamento_id"], "gramas": p["gramas"],
             "horas_h": int(horas), "horas_m": round((horas - int(horas)) * 60),
             "trabalho_min": round((p["horas_trabalho"] or 0) * 60), "custos_extra": p["custos_extra"] or "",
+            "pecas_por_impressao": p["pecas_por_impressao"],
             "preco_venda": p["preco_venda"] if p["preco_venda"] is not None else "",
         })
     return render_template(
@@ -402,12 +421,12 @@ def editar_venda(id):
         nomes = f.getlist("nome")
         coluna = lambda campo: f.getlist(campo) + [""] * (len(nomes) - len(f.getlist(campo)))
         linhas = zip(nomes, coluna("qtd"), coluna("preco_unit"), coluna("custo_unit"),
-                     *(coluna(c) for c in ("filamento_id",) + CAMPOS_CALC))
+                     *(coluna(c) for c in CAMPOS_EDITAR))
         try:
             for nome, qtd, preco, custo, *dados in linhas:
                 if not nome.strip() and not preco.strip():
                     continue  # linha deixada em branco
-                calc = _calc(dict(zip(("filamento_id",) + CAMPOS_CALC, dados)))
+                calc = _calc(dict(zip(CAMPOS_EDITAR, dados)))
                 itens.append(_item(nome, parse_num(qtd, 1), parse_num(preco, None), parse_num(custo), calc, cfg))
         except (TypeError, ValueError, OverflowError):
             itens = None

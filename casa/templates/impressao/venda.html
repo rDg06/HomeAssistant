@@ -26,6 +26,7 @@
       <label>Tempo (h)<input type="number" name="horas_h" value="{{ '%g'|format(c.horas_h) if c.horas_h }}" step="1" min="0"></label>
       <label>Tempo (min)<input type="number" name="horas_m" value="{{ '%g'|format(c.horas_m) if c.horas_m }}" step="1" min="0" max="59"></label>
       <label><span>Acabamento (min) {{ ajuda('Pós-processamento: remover suportes, lixar, pintar ou montar.') }}</span><input type="number" name="trabalho_min" value="{{ '%g'|format(c.trabalho_min) if c.trabalho_min }}" step="any" min="0"></label>
+      <label><span>Peças por impressão {{ ajuda('Quantas peças iguais saem na mesma impressão: a preparação divide-se por elas.') }}</span><input type="number" name="pecas_por_impressao" value="{{ c.pecas_por_impressao or 1 }}" step="1" min="1" max="1000"></label>
       <label><span>Extras (€) {{ ajuda('Envio, embalagem: custos fora da impressão, sem margem.') }}</span><input type="number" name="custos_extra" value="{{ '%g'|format(c.custos_extra) if c.custos_extra }}" step="any" min="0" inputmode="decimal"></label>
     </div>
     {% if apagado %}
@@ -78,7 +79,7 @@
   const form = document.getElementById('venda');
   const lista = document.getElementById('pecas');
   const n_filamentos = () => {{ filamentos|length }};
-  const CALC = ['filamento_id', 'gramas', 'horas_h', 'horas_m', 'trabalho_min', 'custos_extra'];
+  const CALC = ['filamento_id', 'gramas', 'horas_h', 'horas_m', 'trabalho_min', 'custos_extra', 'pecas_por_impressao'];
 
   // Custo calculado com os dados da impressão de uma peça (null se não tiver peso nem tempo).
   function custoDaPeca(bloco) {
@@ -86,7 +87,8 @@
     const horas = n('horas_h') + n('horas_m') / 60;
     if (n('gramas') <= 0 && horas <= 0) return null;
     const opcao = bloco.querySelector('[name=filamento_id]').selectedOptions[0];
-    return custoImpressao(CFG, opcao ? parseFloat(opcao.dataset.preco) : 0, n('gramas'), horas, n('trabalho_min'), n('custos_extra'));
+    return custoImpressao(CFG, opcao ? parseFloat(opcao.dataset.preco) : 0, n('gramas'), horas, n('trabalho_min'),
+                          n('custos_extra'), n('pecas_por_impressao') || 1);
   }
 
   function atualizar(mudou) {

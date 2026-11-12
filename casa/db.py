@@ -127,6 +127,10 @@ MIGRACOES = {
         -- Quem pagou cada gasto (texto livre, ex.: Rodrigo, Carina; vazio = não indicado).
         ALTER TABLE gastos ADD COLUMN quem TEXT NOT NULL DEFAULT '';
     """,
+    13: """
+        -- Quantas peças iguais saem numa impressão: a preparação fixa divide-se por elas.
+        ALTER TABLE pecas ADD COLUMN pecas_por_impressao INTEGER NOT NULL DEFAULT 1;
+    """,
 }
 
 
