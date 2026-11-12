@@ -56,6 +56,23 @@
           <textarea name="notas" rows="2">{{ peca.notas if peca }}</textarea>
         </label>
       </div>
+      {% if guardadas and not peca %}
+        <details class="guardadas" id="guardadas">
+          <summary>Vender peças guardadas <span class="muted pequeno" id="guardadas-estado">escolhe uma ou várias</span></summary>
+          <div class="lista-guardadas">
+            {% for g in guardadas %}
+              <div class="linha-guardada" data-id="{{ g.id }}">
+                <label class="check"><input type="checkbox" autocomplete="off" {{ 'checked' if g.id in usar }}> {{ g.nome }}</label>
+                <span class="muted pequeno preco-guardada"></span>
+                <input type="number" value="1" min="1" step="1" aria-label="Quantidade de {{ g.nome }}" autocomplete="off">
+              </div>
+            {% endfor %}
+          </div>
+          <div class="acoes" style="justify-content: flex-start; margin-top: .6rem">
+            <button type="button" class="pequeno" id="juntar-guardadas">Juntar ao orçamento</button>
+          </div>
+        </details>
+      {% endif %}
     </section>
 
     <div class="coluna">
@@ -125,18 +142,43 @@
   const v = nome => Math.max(0, lerNum(form.elements[nome].value));
   let atual = null;
   let editando = null;  // índice do pedido do orçamento que está na calculadora
+  const GUARDADAS = {{ guardadas|tojson }};
 
-  function calcular() {
-    const opcao = form.elements.filamento_id && form.elements.filamento_id.selectedOptions[0];
+  // Preço, custo e lucro de um pedido a partir dos campos da calculadora (os do formulário ou os de uma peça guardada).
+  function calcularCampos(campos) {
+    const n = c => Math.max(0, lerNum(campos[c]));
+    const opcoes = form.elements.filamento_id ? [...form.elements.filamento_id.options] : [];
+    const opcao = opcoes.find(o => o.value === String(campos.filamento_id));
     const precoKg = opcao ? parseFloat(opcao.dataset.preco) : 0;
-    const horas = v('horas_h') + v('horas_m') / 60;
-    const qtd = Math.max(1, Math.round(v('qtd')) || 1);
-
-    const r = custoImpressao(CFG, precoKg, v('gramas'), horas, v('trabalho_min'), v('custos_extra'));
-    r.unit = form.elements.preco_venda.value ? v('preco_venda') : r.preco_sugerido;
+    const horas = n('horas_h') + n('horas_m') / 60;
+    const qtd = Math.max(1, Math.round(n('qtd')) || 1);
+    const r = custoImpressao(CFG, precoKg, n('gramas'), horas, n('trabalho_min'), n('custos_extra'));
+    r.horas = horas;
+    r.qtd = qtd;
+    r.unit = String(campos.preco_venda ?? '') !== '' ? n('preco_venda') : r.preco_sugerido;
     r.final = r.unit * qtd;
     r.lucro_total = (r.unit - r.producao - r.extra) * qtd;
     r.lucro_mo = r.lucro_total + r.mao_obra * qtd;  // o lucro mais o valor do teu trabalho
+    return r;
+  }
+
+  function pedido(campos, r) {
+    return {
+      nome: String(campos.nome || '').trim() || 'Impressão 3D',
+      qtd: r.qtd,
+      preco_unit: Math.round(r.unit * 100) / 100,
+      custo_unit: Math.round((r.producao + r.extra) * 100) / 100,
+      total: r.final,
+      lucro: r.lucro_total,
+      lucro_mo: r.lucro_mo,
+      campos,
+    };
+  }
+
+  function calcular() {
+    const campos = Object.fromEntries(CAMPOS.filter(c => form.elements[c]).map(c => [c, form.elements[c].value]));
+    const r = calcularCampos(campos);
+    const horas = r.horas;
 
     for (const el of document.querySelectorAll('[data-r]')) el.textContent = fmtEur(r[el.dataset.r]);
     document.querySelector('[data-t=gramas]').textContent = `(${v('gramas').toLocaleString('pt-PT')} g)`;
@@ -144,16 +186,7 @@
     document.querySelector('[data-t=minutos]').textContent = `(${(CFG.prep_min + v('trabalho_min')).toLocaleString('pt-PT')} min)`;
     form.elements.preco_venda.placeholder = r.preco_sugerido.toFixed(2);
 
-    atual = {
-      nome: form.elements.nome.value.trim() || 'Impressão 3D',
-      qtd,
-      preco_unit: Math.round(r.unit * 100) / 100,
-      custo_unit: Math.round((r.producao + r.extra) * 100) / 100,
-      total: r.final,
-      lucro: r.lucro_total,
-      lucro_mo: r.lucro_mo,
-      campos: Object.fromEntries(CAMPOS.filter(c => form.elements[c]).map(c => [c, form.elements[c].value])),
-    };
+    atual = pedido(campos, r);
   }
 
   // Copiar para a área de transferência (também funciona quando a app é aberta pelo IP no telemóvel).
@@ -257,6 +290,7 @@
     const cliente = document.getElementById('cliente').value;
     form.reset();
     document.getElementById('cliente').value = cliente;
+
     calcular();
     form.elements.nome.focus();
   }
@@ -324,6 +358,58 @@
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.preventDefault();
   });
   form.addEventListener('input', calcular);
+
+  // Vender peças guardadas: marcar uma ou várias, com a quantidade de cada, e juntá-las ao orçamento de uma vez.
+  // As peças guardadas não mudam; cada pedido pode depois ser mudado com o ✎ do orçamento.
+  const caixaGuardadas = document.getElementById('guardadas');
+  if (caixaGuardadas) {
+    const linhasG = [...caixaGuardadas.querySelectorAll('.linha-guardada')];
+    const botaoJuntar = document.getElementById('juntar-guardadas');
+    const camposDe = linha => {
+      const g = GUARDADAS.find(p => String(p.id) === linha.dataset.id);
+      return { ...Object.fromEntries(CAMPOS.map(c => [c, String(g[c] ?? '')])), qtd: linha.querySelector('input[type=number]').value };
+    };
+    const marcadas = () => linhasG.filter(l => l.querySelector('input[type=checkbox]').checked);
+    // As marcadas pelo botão "Vender" do painel não voltam a ficar marcadas quando a calculadora é limpa.
+    for (const cb of caixaGuardadas.querySelectorAll('input[type=checkbox]')) {
+      const marcada = cb.checked;
+      cb.defaultChecked = false;
+      cb.checked = marcada;
+    }
+    function atualizarGuardadas() {
+      for (const linha of linhasG) {
+        const r = calcularCampos(camposDe(linha));
+        linha.querySelector('.preco-guardada').textContent = r.qtd > 1 ? `${fmtEur(r.unit)} × ${r.qtd} = ${fmtEur(r.final)}` : fmtEur(r.unit);
+      }
+      const n = marcadas().length;
+      botaoJuntar.disabled = !n;
+      botaoJuntar.textContent = n ? `Juntar ${n === 1 ? '1 peça' : n + ' peças'} ao orçamento` : 'Juntar ao orçamento';
+      // Com a caixa fechada, o título diz quantas estão marcadas (ex.: vindo do botão "Vender" do painel).
+      document.getElementById('guardadas-estado').textContent = n ? `${n} marcada${n > 1 ? 's' : ''}` : 'escolhe uma ou várias';
+    }
+    caixaGuardadas.addEventListener('input', e => {
+      e.stopPropagation();  // não mexe na calculadora
+      // Mudar a quantidade marca a peça
+      if (e.target.type === 'number') e.target.closest('.linha-guardada').querySelector('input[type=checkbox]').checked = true;
+      atualizarGuardadas();
+    });
+    botaoJuntar.addEventListener('click', () => {
+      const lista = marcadas();
+      for (const linha of lista) {
+        const campos = camposDe(linha);
+        orcamento.push(pedido(campos, calcularCampos(campos)));
+        linha.querySelector('input[type=checkbox]').checked = false;
+        linha.querySelector('input[type=number]').value = 1;
+      }
+      guardarOrcamento();
+      mostrarOrcamento();
+      atualizarGuardadas();
+      botaoJuntar.textContent = lista.length === 1 ? 'Junta ao orçamento' : `${lista.length} peças juntas ao orçamento`;
+      setTimeout(atualizarGuardadas, 1500);
+      document.getElementById('orcamento').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    atualizarGuardadas();
+  }
   calcular();
   mostrarOrcamento();
 </script>

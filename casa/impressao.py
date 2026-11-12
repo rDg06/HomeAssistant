@@ -278,8 +278,19 @@ def calculadora():
         peca = db.execute("SELECT * FROM pecas WHERE id = ?", (peca_id,)).fetchone()
         if peca is None:
             abort(404)
+    # Peças guardadas, para escolher uma e a pôr na calculadora (e daí no orçamento) sem a editar.
+    guardadas = []
+    for p in db.execute("SELECT * FROM pecas ORDER BY nome COLLATE PT"):
+        horas = p["horas"] or 0
+        guardadas.append({
+            "id": p["id"], "nome": p["nome"], "filamento_id": p["filamento_id"], "gramas": p["gramas"],
+            "horas_h": int(horas), "horas_m": round((horas - int(horas)) * 60),
+            "trabalho_min": round((p["horas_trabalho"] or 0) * 60), "custos_extra": p["custos_extra"] or "",
+            "preco_venda": p["preco_venda"] if p["preco_venda"] is not None else "",
+        })
     return render_template(
-        "impressao/calculadora.html", peca=peca, filamentos=_filamentos(db), cfg=ler_config(db)
+        "impressao/calculadora.html", peca=peca, filamentos=_filamentos(db), cfg=ler_config(db),
+        guardadas=guardadas, usar=request.args.getlist("usar", type=int),
     )
 
 
@@ -297,7 +308,7 @@ def vendas():
     """Endereço antigo da página das vendas (agora no painel; vender uma peça faz-se na calculadora)."""
     peca = request.args.get("peca", type=int)
     if peca:
-        return redirect(url_for(".calculadora", id=peca))
+        return redirect(url_for(".calculadora", usar=peca))
     mes = request.args.get("mes") if mes_valido(request.args.get("mes", "")) else None
     return redirect(_ir_para_vendas(mes))
 

@@ -535,3 +535,14 @@ tr.a-arrastar .pega-botao { cursor: grabbing; }
 /* Lucro com o lucro + mão de obra por baixo */
 .lucro-duplo { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.25; }
 .lucro-duplo small { font-size: .75rem; white-space: nowrap; }
+/* Calculadora 3D: escolher várias peças guardadas para vender */
+details.guardadas { border: 1px solid var(--border); border-radius: 10px; padding: .6rem .8rem; margin-top: 1rem; }
+details.guardadas > summary { cursor: pointer; font-weight: 600; }
+details.guardadas[open] > summary { margin-bottom: .5rem; }
+.lista-guardadas { display: flex; flex-direction: column; max-height: 18rem; overflow-y: auto; }
+.linha-guardada { display: grid; grid-template-columns: 1fr auto 4.5rem; gap: .5rem; align-items: center;
+                  padding: .3rem 0; border-bottom: 1px solid var(--border); }
+.linha-guardada:last-child { border-bottom: 0; }
+.linha-guardada label.check { padding: 0; min-width: 0; overflow-wrap: anywhere; }
+.linha-guardada input[type=number] { padding: .3rem .4rem; }
+.linha-guardada input[type=checkbox] { flex: none; width: 1.1rem; height: 1.1rem; }

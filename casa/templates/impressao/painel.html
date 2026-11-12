@@ -116,7 +116,7 @@
               <td class="num" data-rotulo="Lucro">{{ lucro_mo(p.lucro, p.lucro_mo) }}</td>
               <td>
                 <div class="acoes">
-                  <a class="botao pequeno" href="{{ url_for('.calculadora', id=p.id) }}" title="Abre a peça na calculadora para a juntares ao orçamento">Vender</a>
+                  <a class="botao pequeno" href="{{ url_for('.calculadora', usar=p.id) }}" title="Abre a calculadora com esta peça marcada (podes marcar mais)">Vender</a>
                   <a class="botao secundario pequeno" href="{{ url_for('.calculadora', id=p.id) }}">Editar</a>
                   <form method="post" action="{{ url_for('.apagar_peca', id=p.id) }}" data-confirmar="Apagar esta peça?">
                     <button class="perigo pequeno">Apagar</button>
