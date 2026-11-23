@@ -328,6 +328,13 @@ tr.a-editar td { background: var(--accent-soft); }
                     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 .rodape-peca { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; justify-content: flex-end; margin-top: .75rem; }
 .rodape-peca .sugerido { margin-right: auto; }
+/* Cada peça mostra o resumo (com Editar e Eliminar) ou o formulário aberto */
+.peca-venda[data-modo="ver"] .peca-form, .peca-venda[data-modo="editar"] .peca-resumo { display: none; }
+.peca-venda[data-modo="ver"] { padding: .6rem .85rem; }
+.peca-venda[data-modo="editar"] { border-color: var(--accent); }
+.peca-resumo { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1rem; }
+.peca-resumo-texto { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.peca-resumo .acoes { flex-wrap: nowrap; }
 /* Tabela com o conteúdo das colunas à esquerda e os botões à direita (só no computador; no telemóvel são cartões) */
 @media (min-width: 641px) {
   table.esquerda th, table.esquerda td { text-align: left; }

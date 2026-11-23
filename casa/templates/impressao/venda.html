@@ -2,40 +2,55 @@
 {% from "_macros.html" import ajuda %}
 {% block titulo %}Editar venda{% endblock %}
 
+{# Uma peça da venda: em resumo (com Editar e Eliminar) ou com o formulário aberto (peça nova ou a editar). #}
 {% macro peca(item=none) %}
   {% set c = item.calc if item and item.calc else {} %}
-  <div class="peca-venda">
-    <div class="campos">
-      <label class="largo">Peça<input name="nome" value="{{ item.nome if item }}" placeholder="ex.: suporte de comando" autocomplete="off"></label>
-      <label>Quantidade<input type="number" name="qtd" value="{{ item.qtd if item else 1 }}" min="1" step="1"></label>
-      <label>Preço por unidade (€)<input type="number" name="preco_unit" value="{{ '%.2f'|format(item.preco_unit) if item }}" step="0.01" min="0" inputmode="decimal"></label>
-      <label><span>Custo por unidade (€) {{ ajuda('Calcula-se sozinho quando mudas os dados da impressão. Também o podes escrever à mão.') }}</span>
-        <input type="number" name="custo_unit" value="{{ '%.2f'|format(item.custo_unit) if item }}" step="0.01" min="0" inputmode="decimal"></label>
+  {% set apagado = c.filamento_id and c.filamento_id not in filamentos|map(attribute='id')|list %}
+  <div class="peca-venda" data-modo="{{ 'ver' if item else 'editar' }}">
+    <div class="peca-resumo">
+      <div class="peca-resumo-texto">
+        <b class="resumo-nome"></b>
+        <span class="muted pequeno resumo-qtd"></span>
+        {% if apagado %}<span class="pequeno negativo">· filamento apagado</span>{% endif %}
+      </div>
+      <span class="pequeno resumo-valores"><b class="total-linha"></b> · lucro <b class="lucro-linha"></b><span class="mo-linha muted"></span></span>
+      <div class="acoes">
+        <button type="button" class="secundario pequeno editar-peca">Editar</button>
+        <button type="button" class="perigo pequeno remover">Eliminar</button>
+      </div>
     </div>
-    <div class="campos calc">
-      {% set apagado = c.filamento_id and c.filamento_id not in filamentos|map(attribute='id')|list %}
-      <label>Filamento
-        <select name="filamento_id">
-          {% if apagado %}<option value="" data-preco="0" selected>— filamento apagado —</option>{% endif %}
-          {% for f in filamentos %}
-            <option value="{{ f.id }}" data-preco="{{ f.preco_kg }}" {{ 'selected' if c.filamento_id == f.id }}>{{ f.nome }} ({{ f.material }})</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Peso (g)<input type="number" name="gramas" value="{{ '%g'|format(c.gramas) if c.gramas }}" step="any" min="0" inputmode="decimal"></label>
-      <label>Tempo (h)<input type="number" name="horas_h" value="{{ '%g'|format(c.horas_h) if c.horas_h }}" step="1" min="0"></label>
-      <label>Tempo (min)<input type="number" name="horas_m" value="{{ '%g'|format(c.horas_m) if c.horas_m }}" step="1" min="0" max="59"></label>
-      <label><span>Acabamento (min) {{ ajuda('Pós-processamento: remover suportes, lixar, pintar ou montar.') }}</span><input type="number" name="trabalho_min" value="{{ '%g'|format(c.trabalho_min) if c.trabalho_min }}" step="any" min="0"></label>
-      <label><span>Peças por impressão {{ ajuda('Quantas peças iguais saem na mesma impressão: a preparação divide-se por elas.') }}</span><input type="number" name="pecas_por_impressao" value="{{ c.pecas_por_impressao or 1 }}" step="1" min="1" max="1000"></label>
-      <label><span>Extras (€) {{ ajuda('Envio, embalagem: custos fora da impressão, sem margem.') }}</span><input type="number" name="custos_extra" value="{{ '%g'|format(c.custos_extra) if c.custos_extra }}" step="any" min="0" inputmode="decimal"></label>
-    </div>
-    {% if apagado %}
-      <p class="aviso erro pequeno" style="margin: .6rem 0 0">O filamento desta peça foi apagado. Escolhe outro se quiseres recalcular o custo (o custo guardado mantém-se).</p>
-    {% endif %}
-    <div class="rodape-peca">
-      <span class="muted pequeno sugerido"></span>
-      <span class="pequeno">Total <b class="total-linha"></b> · lucro <b class="lucro-linha"></b><span class="mo-linha muted"></span></span>
-      <button type="button" class="perigo pequeno remover">Remover peça</button>
+
+    <div class="peca-form">
+      <div class="campos">
+        <label class="largo">Peça<input name="nome" value="{{ item.nome if item }}" placeholder="ex.: suporte de comando" autocomplete="off"></label>
+        <label>Quantidade<input type="number" name="qtd" value="{{ item.qtd if item else 1 }}" min="1" step="1"></label>
+        <label>Preço por unidade (€)<input type="number" name="preco_unit" value="{{ '%.2f'|format(item.preco_unit) if item }}" step="0.01" min="0" inputmode="decimal"></label>
+        <label><span>Custo por unidade (€) {{ ajuda('Calcula-se sozinho quando mudas os dados da impressão. Também o podes escrever à mão.') }}</span>
+          <input type="number" name="custo_unit" value="{{ '%.2f'|format(item.custo_unit) if item }}" step="0.01" min="0" inputmode="decimal"></label>
+      </div>
+      <div class="campos calc">
+        <label>Filamento
+          <select name="filamento_id">
+            {% if apagado %}<option value="" data-preco="0" selected>— filamento apagado —</option>{% endif %}
+            {% for f in filamentos %}
+              <option value="{{ f.id }}" data-preco="{{ f.preco_kg }}" {{ 'selected' if c.filamento_id == f.id }}>{{ f.nome }} ({{ f.material }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Peso (g)<input type="number" name="gramas" value="{{ '%g'|format(c.gramas) if c.gramas }}" step="any" min="0" inputmode="decimal"></label>
+        <label>Tempo (h)<input type="number" name="horas_h" value="{{ '%g'|format(c.horas_h) if c.horas_h }}" step="1" min="0"></label>
+        <label>Tempo (min)<input type="number" name="horas_m" value="{{ '%g'|format(c.horas_m) if c.horas_m }}" step="1" min="0" max="59"></label>
+        <label><span>Acabamento (min) {{ ajuda('Pós-processamento: remover suportes, lixar, pintar ou montar.') }}</span><input type="number" name="trabalho_min" value="{{ '%g'|format(c.trabalho_min) if c.trabalho_min }}" step="any" min="0"></label>
+        <label><span>Peças por impressão {{ ajuda('Quantas peças iguais saem na mesma impressão: a preparação divide-se por elas.') }}</span><input type="number" name="pecas_por_impressao" value="{{ c.pecas_por_impressao or 1 }}" step="1" min="1" max="1000"></label>
+        <label><span>Extras (€) {{ ajuda('Envio, embalagem: custos fora da impressão, sem margem.') }}</span><input type="number" name="custos_extra" value="{{ '%g'|format(c.custos_extra) if c.custos_extra }}" step="any" min="0" inputmode="decimal"></label>
+      </div>
+      {% if apagado %}
+        <p class="aviso erro pequeno" style="margin: .6rem 0 0">O filamento desta peça foi apagado. Escolhe outro se quiseres recalcular o custo (o custo guardado mantém-se).</p>
+      {% endif %}
+      <div class="rodape-peca">
+        <span class="muted pequeno sugerido"></span>
+        <button type="button" class="pequeno concluir-peca">Concluir</button>
+      </div>
     </div>
   </div>
 {% endmacro %}
@@ -106,7 +121,11 @@
         : semFilamento ? 'Escolhe o filamento para calcular o custo'
         : `Custo calculado ${fmtEur(r.producao + r.extra)} · preço sugerido ${fmtEur(r.preco_sugerido)}`;
       const qtd = Math.max(1, Math.round(lerNum(campo('qtd').value)) || 1);
-      const t = qtd * lerNum(campo('preco_unit').value), c = qtd * lerNum(campo('custo_unit').value);
+      const preco = lerNum(campo('preco_unit').value);
+      const t = qtd * preco, c = qtd * lerNum(campo('custo_unit').value);
+      // Resumo da peça (o que se vê quando o formulário está fechado)
+      bloco.querySelector('.resumo-nome').textContent = campo('nome').value.trim() || 'Peça sem nome';
+      bloco.querySelector('.resumo-qtd').textContent = `${qtd} × ${fmtEur(preco)}`;
       bloco.querySelector('.total-linha').textContent = fmtEur(t);
       const lucro = bloco.querySelector('.lucro-linha');
       lucro.textContent = fmtEur(t - c);
@@ -124,18 +143,36 @@
     celula.textContent = fmtEur(lucro);
     celula.className = lucro < 0 ? 'negativo' : 'positivo';
     document.getElementById('lucro-mo').textContent = maoObra ? ` · ${fmtEur(lucro + maoObra)} com mão de obra` : '';
+    // A venda fica sempre com pelo menos uma peça.
     for (const b of lista.querySelectorAll('.remover')) b.hidden = lista.children.length < 2;
+  }
+
+  function abrir(bloco) {
+    bloco.dataset.modo = 'editar';
+    bloco.querySelector('[name=nome]').focus();
   }
 
   document.getElementById('adicionar').addEventListener('click', () => {
     lista.append(document.getElementById('peca-modelo').content.cloneNode(true));
-    lista.lastElementChild.querySelector('input').focus();
+    abrir(lista.lastElementChild);
     atualizar();
   });
   lista.addEventListener('click', e => {
-    if (!e.target.closest('.remover') || lista.children.length < 2) return;
-    e.target.closest('.peca-venda').remove();
-    atualizar();
+    const bloco = e.target.closest('.peca-venda');
+    if (!bloco) return;
+    if (e.target.closest('.editar-peca')) abrir(bloco);
+    if (e.target.closest('.concluir-peca')) {
+      bloco.dataset.modo = 'ver';
+      atualizar();
+    }
+    const eliminar = e.target.closest('.remover');
+    if (eliminar && lista.children.length > 1) {
+      // Pede confirmação no próprio botão ("Confirmar?"); só um segundo clique elimina.
+      pedirConfirmacao(eliminar, 'Eliminar esta peça?', () => {
+        bloco.remove();
+        atualizar();
+      });
+    }
   });
   form.addEventListener('input', e => atualizar(e.target));
   form.addEventListener('change', e => { if (e.target.tagName === 'SELECT') atualizar(e.target); });
