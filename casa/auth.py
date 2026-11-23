@@ -1,5 +1,6 @@
 """Palavra-passe única da casa: protege todas as páginas da app."""
 import math
+import sqlite3
 import threading
 import time
 
@@ -83,6 +84,21 @@ def _iniciar_sessao(hash_atual):
     session["passe"] = hash_atual[-16:]
 
 
+def sessao_valida(hash_atual=None):
+    """True se este aparelho entrou com a palavra-passe atual (mudá-la termina as sessões dos outros)."""
+    hash_atual = hash_atual or _hash_guardado()
+    return bool(hash_atual) and session.get("passe") == hash_atual[-16:]
+
+
+@bp.app_context_processor
+def _contexto():
+    # O menu (tabs, Configurações, Sair) só aparece a quem entrou mesmo, e não na página de entrada.
+    try:
+        return {"entrou": request.endpoint not in PAGINAS_LIVRES and sessao_valida()}
+    except sqlite3.Error:  # ex.: a página de erro quando a base de dados falha
+        return {"entrou": False}
+
+
 def _destino_seguro(destino):
     """Só deixa voltar a páginas desta app (nunca a outro site)."""
     # "//site" e "/\site" são tratados pelos browsers como endereços de outro site.
@@ -98,7 +114,7 @@ def proteger():
     hash_atual = _hash_guardado()
     if hash_atual is None:
         return redirect(url_for("auth.definir"))
-    if session.get("passe") == hash_atual[-16:]:
+    if sessao_valida(hash_atual):
         return None
     if request.is_json:
         abort(401)
@@ -112,6 +128,11 @@ def entrar():
     if hash_atual is None:
         return redirect(url_for(".definir"))
     seguinte = request.values.get("seguinte", "")
+    if sessao_valida(hash_atual):
+        # Já entrou neste aparelho (ex.: a página de entrada ficou nos favoritos): segue em frente.
+        return redirect(_destino_seguro(seguinte))
+    if session.get("passe"):
+        session.clear()  # sessão de uma palavra-passe antiga: deixa de contar
     if request.method == "POST":
         minutos = _minutos_bloqueado()
         if minutos:  # bloqueado: nem se verifica a palavra-passe
