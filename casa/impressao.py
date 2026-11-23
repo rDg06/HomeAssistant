@@ -241,7 +241,6 @@ def painel():
         mes=mes,
         resumo_mes=resumo_vendas(db, mes),
         resumo_ano=resumo_vendas(db, mes[:4]),
-        pecas=pecas_com_custo(db),
         vendas=_com_pecas(vendas_mes),
     )
 
@@ -288,7 +287,7 @@ def calculadora():
             )
             flash(f"Peça \"{dados['nome']}\" guardada.", "ok")
         db.commit()
-        return redirect(url_for(".painel"))
+        return redirect(url_for(".pecas"))
 
     peca = None
     peca_id = request.args.get("id", type=int)
@@ -313,13 +312,19 @@ def calculadora():
     )
 
 
+@bp.route("/pecas")
+def pecas():
+    """As peças guardadas na calculadora, com o custo, o preço e o lucro de cada uma."""
+    return render_template("impressao/pecas.html", pecas=pecas_com_custo(get_db()))
+
+
 @bp.post("/pecas/<int:id>/apagar")
 def apagar_peca(id):
     db = get_db()
     db.execute("DELETE FROM pecas WHERE id = ?", (id,))
     db.commit()
     flash("Peça apagada. As vendas já registadas mantêm-se.", "ok")
-    return redirect(url_for(".painel"))
+    return redirect(url_for(".pecas"))
 
 
 @bp.route("/vendas")

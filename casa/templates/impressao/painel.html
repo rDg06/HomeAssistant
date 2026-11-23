@@ -89,47 +89,4 @@
     <p class="vazio">Sem vendas em {{ nome_mes(mes) }}.</p>
   {% endif %}
 </section>
-
-<section class="cartao" id="pecas">
-  <div class="cabecalho" style="margin-bottom: .5rem">
-    <h2 style="margin: 0">Peças guardadas</h2>
-    <a class="botao secundario pequeno" href="{{ url_for('.calculadora') }}">+ Calcular nova peça</a>
-  </div>
-  {% if pecas %}
-    <div class="tabela">
-      <table class="responsiva">
-        <thead>
-          <tr>
-            <th>Peça</th><th>Filamento</th><th class="num">Peso</th><th class="num">Tempo</th>
-            <th class="num">Custo</th><th class="num">Preço</th><th class="num">Lucro</th><th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in pecas %}
-            <tr>
-              <td class="titulo">{{ p.nome }}{% if p.notas %}<div class="muted pequeno">{{ p.notas }}</div>{% endif %}</td>
-              <td data-rotulo="Filamento">{{ p.filamento or '—' }}</td>
-              <td class="num" data-rotulo="Peso">{{ p.gramas|num(1) }} g</td>
-              <td class="num" data-rotulo="Tempo">{{ p.horas|duracao }}</td>
-              <td class="num" data-rotulo="Custo">{{ p.custo.total|eur }}</td>
-              <td class="num" data-rotulo="Preço"><span>{{ p.preco|eur }}{% if p.preco_venda is none %} <span class="muted pequeno">(sugerido)</span>{% endif %}</span></td>
-              <td class="num" data-rotulo="Lucro">{{ lucro_mo(p.lucro, p.lucro_mo) }}</td>
-              <td>
-                <div class="acoes">
-                  <a class="botao pequeno" href="{{ url_for('.calculadora', usar=p.id) }}" title="Abre a calculadora com esta peça marcada (podes marcar mais)">Vender</a>
-                  <a class="botao secundario pequeno" href="{{ url_for('.calculadora', id=p.id) }}">Editar</a>
-                  <form method="post" action="{{ url_for('.apagar_peca', id=p.id) }}" data-confirmar="Apagar esta peça?">
-                    <button class="perigo pequeno">Apagar</button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <p class="vazio">Ainda não guardaste nenhuma peça. Usa a <a href="{{ url_for('.calculadora') }}">calculadora</a>.</p>
-  {% endif %}
-</section>
 {% endblock %}

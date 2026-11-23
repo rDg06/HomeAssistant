@@ -375,7 +375,7 @@
       return { ...Object.fromEntries(CAMPOS.map(c => [c, String(g[c] ?? '')])), qtd: linha.querySelector('input[type=number]').value };
     };
     const marcadas = () => linhasG.filter(l => l.querySelector('input[type=checkbox]').checked);
-    // As marcadas pelo botão "Vender" do painel não voltam a ficar marcadas quando a calculadora é limpa.
+    // As marcadas pelo botão "Vender" das peças guardadas não voltam a ficar marcadas quando a calculadora é limpa.
     for (const cb of caixaGuardadas.querySelectorAll('input[type=checkbox]')) {
       const marcada = cb.checked;
       cb.defaultChecked = false;
@@ -389,7 +389,7 @@
       const n = marcadas().length;
       botaoJuntar.disabled = !n;
       botaoJuntar.textContent = n ? `Juntar ${n === 1 ? '1 peça' : n + ' peças'} ao orçamento` : 'Juntar ao orçamento';
-      // Com a caixa fechada, o título diz quantas estão marcadas (ex.: vindo do botão "Vender" do painel).
+      // Com a caixa fechada, o título diz quantas estão marcadas (ex.: vindo do botão "Vender" das peças guardadas).
       document.getElementById('guardadas-estado').textContent = n ? `${n} marcada${n > 1 ? 's' : ''}` : 'escolhe uma ou várias';
     }
     caixaGuardadas.addEventListener('input', e => {
